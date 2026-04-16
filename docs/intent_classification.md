@@ -125,8 +125,10 @@ All trigger phrases in `intent_triggers.json` should be **6 words or fewer** to 
 
 Intent classification occurs at **Phase 4** of the search pipeline, after RRF fusion scoring is complete:
 
-```
-Phase 3 (RRF Score: 0-100%) ──► Phase 4 (Intent: High/Med/Low) ──► Phase 5 (Display Decision)
+```mermaid
+graph LR
+    P3["Phase 3<br>RRF Score: 0-100%"] --> P4["Phase 4<br>Intent: High/Med/Low"]
+    P4 --> P5["Phase 5<br>Display Decision"]
 ```
 
 The display decision matrix in Phase 5 combines both scores:

@@ -57,16 +57,17 @@ When the GPU overheats catastrophically and the Faster-Whisper STT thread must b
 
 Queue A implements a strict **acknowledgment receipt protocol**:
 
-```
-┌──────────────┐         ┌─────────────────┐         ┌──────────────┐
-│  Thread 1     │  push   │    Queue A       │  pull   │  Thread 2     │
-│  Audio Capture│ ──────► │  (with ack)      │ ──────► │  STT Inference│
-└──────────────┘         │                  │         └──────┬───────┘
-                         │  ┌────────────┐  │                │
-                         │  │ Pending    │  │     ack        │
-                         │  │ Chunks     │◄─┼────────────────┘
-                         │  └────────────┘  │  (after text pushed to Queue B)
-                         └─────────────────┘
+```mermaid
+graph LR
+    T1["Thread 1<br>(Audio Capture)"] -- "push" --> QA["Queue A<br>(with ack)"]
+    QA -- "pull" --> T2["Thread 2<br>(STT Inference)"]
+    
+    subgraph Queue A Internal
+        PC["Pending Chunks"]
+    end
+    
+    T2 -- "ack (after text to Queue B)" --> PC
+    QA -.-> PC
 ```
 
 ### Execution

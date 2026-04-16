@@ -24,33 +24,32 @@
 
 ## Architecture at a Glance
 
-```
-Audio Feed ──► Thread 1 (Capture) ──► Queue A ──► Thread 2 (STT Inference)
-                                                        │
-                                                        ▼
-                                                  Sliding Window
-                                                  (15 words, 6 overlap)
-                                                        │
-                                                        ▼
-                                                    Queue B
-                                                        │
-                                              ┌─────────┴─────────┐
-                                              ▼                   ▼
-                                        BM25 (Lexical)    FAISS (Semantic)
-                                              │                   │
-                                              └─────────┬─────────┘
-                                                        ▼
-                                                  RRF Fusion
-                                                  + Intent Check
-                                                        │
-                                              ┌─────────┼─────────┐
-                                              ▼         ▼         ▼
-                                         Auto-Display  Queue   Discard
-                                         (WebSocket)  (Operator)
-                                              │         │
-                                              ▼         ▼
-                                        OBS Browser   Review UI
-                                          Source
+```mermaid
+graph TD
+    A[Audio Feed] -->|"Raw PCM"| T1[Thread 1: Capture]
+    T1 -->|"ack protocol"| QA[Queue A]
+    QA --> T2[Thread 2: STT Inference]
+    T2 -->|"15 words, 6 overlap"| SW[Sliding Window]
+    SW --> QB[Queue B]
+    QB --> T3[Thread 3: Search & Scoring]
+    
+    subgraph "Parallel Processing"
+        BM25[BM25 Lexical]
+        FAISS[FAISS Semantic]
+    end
+    
+    T3 --> BM25
+    T3 --> FAISS
+    
+    BM25 --> RRF[RRF Fusion + Intent Check]
+    FAISS --> RRF
+    
+    RRF -->|"> 85% Con + High Intent"| AD[Auto-Display WebSocket]
+    RRF -->|"Moderate Con OR Low Intent"| QO[Queue: Operator Review]
+    RRF -->|"< 40% Con"| D[Discard]
+    
+    AD --> OBS[OBS Browser Source]
+    QO --> UI[Review UI]
 ```
 
 ## Documentation Index

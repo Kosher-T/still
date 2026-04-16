@@ -15,19 +15,10 @@ This document specifies how Still renders scripture text and delivers it to the 
 
 ### The Three Components
 
-```
-┌──────────────────┐        WebSocket        ┌──────────────────┐
-│  Python App       │ ────────────────────►  │  HTML/CSS/JS      │
-│  (Dispatcher)     │   JSON payload          │  (Renderer)       │
-└──────────────────┘                         └────────┬─────────┘
-                                                      │
-                                              OBS Browser Source
-                                                      │
-                                                      ▼
-                                             ┌──────────────────┐
-                                             │  Broadcast Output  │
-                                             │  (OBS / vMix)     │
-                                             └──────────────────┘
+```mermaid
+graph LR
+    P["Python App<br>(Dispatcher)"] -- "WebSocket<br>JSON payload" --> H["HTML/CSS/JS<br>(Renderer)"]
+    H -- "OBS Browser Source" --> BO["Broadcast Output<br>(OBS / vMix)"]
 ```
 
 ---

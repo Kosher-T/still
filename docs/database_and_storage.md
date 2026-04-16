@@ -8,26 +8,16 @@ This document specifies how Still persists data during a live service, including
 
 Still uses a **single SQLite database file** in WAL (Write-Ahead Logging) mode, guarded by a dedicated single-writer thread that serializes all inserts. A parallel append-only flat file provides a zero-overhead fail-safe for the raw transcript.
 
-```
-┌─────────────────────────────────────────────────────┐
-│                Database Write Queue                  │
-│  Producers: Thread 2 (STT), Thread 3 (Search),     │
-│             Main Thread (UI events)                  │
-└───────────────────────┬─────────────────────────────┘
-                        │
-                        ▼
-              ┌──────────────────┐
-              │  Thread 4:        │
-              │  DB Writer        │
-              │  (single-writer)  │
-              └────────┬─────────┘
-                       │
-              ┌────────┴────────┐
-              ▼                 ▼
-    ┌──────────────┐   ┌────────────────┐
-    │  SQLite WAL   │   │  Flat File     │
-    │  Database     │   │  (append-only) │
-    └──────────────┘   └────────────────┘
+```mermaid
+graph TD
+    T2["Thread 2 (STT)"] --> DBQ["Database Write Queue"]
+    T3["Thread 3 (Search)"] --> DBQ
+    MT["Main Thread (UI events)"] --> DBQ
+    
+    DBQ --> T4["Thread 4: DB Writer<br>(single-writer)"]
+    
+    T4 --> SQL["SQLite WAL Database"]
+    T4 --> FF["Flat File (append-only)"]
 ```
 
 ---

@@ -107,40 +107,23 @@ If hardware budgeting for a wireless unit is denied and physical audio routing i
 
 ## Signal Chain Summary
 
-```
-                  ┌──────────────────────────────────┐
-                  │  PRIMARY: Wireless Transmitter     │
-                  │  FOH Aux Send → Wireless → PC     │
-                  └──────────────┬───────────────────┘
-                                 │
-                                 ▼
-                      ┌─────────────────────┐
-                      │  sounddevice         │
-                      │  16kHz / Mono / f32  │
-                      └──────────┬──────────┘
-                                 │
-                                 ▼
-                          ┌─────────────┐
-                          │   Queue A    │
-                          │  (with ack   │
-                          │   receipts)  │
-                          └──────┬──────┘
-                                 │
-                                 ▼
-                      ┌─────────────────────┐
-                      │  Thread 2: STT       │
-                      │  Faster-Whisper      │
-                      │  (GPU Inference)     │
-                      └─────────────────────┘
+```mermaid
+graph TD
+    classDef primary fill:#1f77b4,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef fallback fill:#ff7f0e,stroke:#fff,stroke-width:2px,color:#fff;
 
+    FOH["PRIMARY: Wireless Transmitter<br>FOH Aux Send → Wireless → PC"]:::primary
+    RM["LAST RESORT: Room Microphone<br>Ambient Mic → DFN 3 → PC"]:::fallback
+    
+    SD["<b>sounddevice</b><br>16kHz / Mono / f32"]
+    QA["<b>Queue A</b><br>(with ack receipts)"]
+    T2["<b>Thread 2: STT</b><br>Faster-Whisper (GPU Inference)"]
 
-                  ┌──────────────────────────────────┐
-                  │  LAST RESORT: Room Microphone     │
-                  │  Ambient Mic → DFN 3 → PC        │
-                  └──────────────┬───────────────────┘
-                                 │
-                                 ▼
-                          (same pipeline)
+    FOH --> SD
+    RM --> SD
+    
+    SD --> QA
+    QA --> T2
 ```
 
 ---
