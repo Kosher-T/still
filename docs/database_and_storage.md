@@ -73,6 +73,18 @@ Every critical action in the pipeline is treated as an independent event payload
 
 ---
 
+---
+
+## Configuration Storage Architecture
+
+Application settings and states are strictly segregated to prevent database bloat, state conflicts, and security risks:
+
+1. **JSON Config (`config.json`)**: Stores static application state (e.g., UI defaults, theme CSS definitions). Edited by the system admin. Read exactly once at boot.
+2. **SQLite `settings` table**: Stores user-toggled, active settings managed through the Operator UI (e.g., current active theme, current RRF confidence threshold). Read at boot, and updated safely via the single-writer Database Write Queue.
+3. **`.env` File**: Strictly reserved for API keys (e.g., Gemini, Claude, Groq). Injected dynamically at runtime and never persisted to any table.
+
+---
+
 ## Database Schema
 
 ### `transcripts` Table
@@ -173,13 +185,20 @@ def push_to_queue(text_chunk, session_id):
     db_write_queue.put(payload)
 ```
 
-### Session-Scoped Composite Keys
+### Session Resumption & Composite Keys
 
-The Sequence ID resets to 1 on every application boot. To prevent collisions across services stored in the same database:
+The Sequence ID resets to 1 on every fresh application boot. To prevent collisions across services stored in the same database and to handle mid-service application crashes seamlessly:
 
-1. During **Phase 1 Initialization**, the application generates a **Session UUID** (e.g., `2026-04-16_AM`).
-2. Every payload includes both the Session UUID and the Sequence ID.
-3. The reconstruction query is scoped to the session:
+1. During **Phase 1 Initialization**, the system queries the `sessions` table for any row where `ended_at` is `NULL` (indicating an interrupted service within the last 4 hours).
+2. If an open session is found, the application re-adopts that exact **Session UUID** (e.g., `2026-04-16_AM`).
+3. To maintain monotonic sequencing, the system sets the local counter: `sequence_counter = MAX(sequence_id) + 1` from the `transcripts` table for that session.
+4. If no open session is found, a new Session UUID is generated, and `sequence_counter` starts at 1.
+
+This Session Stitching guarantees an unbroken sequence ID chain under a single session UUID, requiring zero changes to the LLM monolithic payload logic if the software crashes and is restarted mid-service.
+
+#### Reconstruction Scoping
+
+Every payload includes both the Session UUID and the Sequence ID. The reconstruction query is scoped to the session:
 
 ```sql
 SELECT text_chunk 
@@ -207,20 +226,22 @@ While SQLite WAL mode is highly robust, a sudden power loss during an active dat
 | **Method** | OS native stream writer (`open(path, 'a')`) |
 | **Compute overhead** | Virtually zero — no indexing, no parsing |
 
-### File Path and Naming
+### Strict Directory Isolation
 
 > [!CAUTION]
-> **The file must never be saved in standard user directories** (Desktop, Documents, Downloads) where background sync agents (OneDrive, Dropbox, Google Drive) will instantly lock the file during sync attempts, causing `PermissionError` exceptions that crash the writer.
+> **The file must never be saved in standard user directories** (Desktop, Documents, Downloads). Background cloud sync agents (OneDrive, Google Drive) will lock these files to upload them, triggering recursive `PermissionError` exceptions on backup file generation that instantly kill the DB Writer thread.
+
+OS-level file locking is bypassed entirely by programmatically forcing the log path to system-level application data directories. Cloud sync agents do not monitor system-level directories, permanently eliminating the external lock vector.
 
 | Property | Convention |
 |----------|-----------|
-| **Directory** | Isolated application data path (e.g., `/var/lib/still/logs/` on Linux, `C:\ProgramData\Still\Logs\` on Windows) |
+| **Directory** | Isolated application data path (`C:\ProgramData\Still\Logs\` on Windows, `/var/lib/still/logs/` on Linux) |
 | **Filename** | ISO 8601 format: `YYYY-MM-DD_HH-MM-SS_raw_stt.log` |
 | **Example** | `2026-04-16_09-30-00_raw_stt.log` |
 
-### Failover on File Lock
+### Failover on Concurrent Lock (Fallback)
 
-If an external process places an exclusive lock on the active `.log` file:
+While sync agents are structurally avoided, if an anti-virus or other rogue process places an exclusive lock on the active `.log` file:
 
 1. The `write()` call throws a `PermissionError`.
 2. Thread 4 catches the exception and immediately closes the file handle.

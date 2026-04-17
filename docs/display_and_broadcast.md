@@ -27,19 +27,25 @@ graph LR
 
 When the search pipeline (Phase 5) triggers an auto-display or the operator manually approves a verse, Python packages the display data into a minimal JSON payload and pushes it over a local WebSocket connection.
 
-### WebSocket Server
+### WebSocket Server & State Reconciliation
 
-During Phase 1 (Initialization), Python starts a lightweight WebSocket server on a local port:
+During Phase 1 (Initialization), Python starts a lightweight WebSocket server on a local port. 
+
+**The Last-Known-State Cache:** If OBS crashes and the Browser Source reconnects mid-service, the Python server only pushes payloads at the exact millisecond of a search trigger. A new connection would stare at a blank screen until the next verse. To prevent this, the server maintains a `current_display_state` variable. When a new client connects, the socket handler instantly pushes the current payload.
 
 ```python
 import asyncio
 import websockets
+import json
 
 connected_clients = set()
+current_display_state = {"action": "clear"}
 
 async def handler(websocket, path):
     connected_clients.add(websocket)
     try:
+        # Instantly sync the newly connected OBS instance
+        await websocket.send(json.dumps(current_display_state))
         async for message in websocket:
             pass  # Client doesn't send messages; this is one-way
     finally:
@@ -86,12 +92,24 @@ When the operator clears the screen or the display timer expires:
 
 ```python
 async def broadcast_display(payload: dict):
+    global current_display_state
+    current_display_state = payload  # Update the cache
+    
     message = json.dumps(payload)
     if connected_clients:
         await asyncio.gather(
             *[client.send(message) for client in connected_clients]
         )
 ```
+
+### Operator Socket Telemetry Monitoring
+
+The operator must know if the broadcast software is actively receiving the text before the service begins. 
+
+The Operator UI continuously polls the `len(connected_clients)` value from the WebSocket server.
+- If `length == 0`, a dedicated UI element displays a red tint/warning: **"OBS / DISPLAY NOT CONNECTED"**.
+- If `length >= 1`, the element shifts to a green tint. This provides absolute visual confirmation prior to downbeat.
+
 
 ---
 

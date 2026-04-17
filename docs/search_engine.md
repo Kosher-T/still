@@ -14,16 +14,19 @@ Still uses a Continuous Stream (CS) STT model. The search engine does not wait f
 
 | Parameter | Value | Rationale |
 |-----------|-------|-----------|
-| **Window size** | 15 words | Provides sufficient semantic context for `all-MiniLM-L6-v2` to generate meaningful 384-dimensional embeddings |
+| **Search Window size** | 15 words | Provides sufficient semantic context for `all-MiniLM-L6-v2` to generate meaningful 384-dimensional embeddings |
+| **Trigger Buffer** | 50 words | A secondary rolling RAM array decoupled from the search window. Allows directional look-back without destroying mathematical vector integrity |
 | **Trailing overlap** | Last 6 words retained | Bridges context across consecutive search iterations; guarantees intent trigger phrases up to 7 words are caught |
 | **Trigger mechanism** | Strictly word-count based | Acoustic pause triggers are explicitly omitted to conserve GPU compute and reduce system complexity |
 
-### Execution
+### Execution & Decoupled Buffering
 
-1. Thread 2 (STT Inference) appends transcribed words to an in-memory string buffer.
-2. When the buffer hits exactly 15 words, the full text block is pushed to Queue B for search processing.
-3. The buffer drops the oldest 9 words and retains the last 6 as the trailing overlap for the next iteration.
-4. This cycle repeats every ~3 seconds of continuous speech.
+1. Thread 2 (STT Inference) appends transcribed words to the primary 15-word buffer, while simultaneously maintaining the 50-word rolling **Trigger Buffer**.
+2. If an intent trigger is detected:
+   - **Preceding Search:** Extract the prior 15 words from the 50-word Trigger Buffer instantly and push to Queue B.
+   - **Proceeding/Centered Search:** Set a "Wait State" flag. Halt that specific search execution temporarily, wait for the incoming STT stream to provide the necessary future words, then snap the 15-word window and fire it.
+3. Under normal continuous speech without a trigger, when the primary buffer hits exactly 15 words, the full text block is pushed to Queue B.
+4. The primary buffer drops the oldest 9 words and retains the last 6 as the trailing overlap for the next iteration.
 
 ### Slow Speech — The Deadlock Threshold
 
@@ -45,7 +48,15 @@ The 15-word text block is duplicated and fired down two parallel search lanes si
 
 BM25 does not understand meaning — it matches exact words against the 186,000+ verses in the offline Bible database.
 
-#### Step 1: Stop-Word Stripping
+#### Step 1: Lexical Normalization
+
+Faster-Whisper outputs capitalized, punctuated text (e.g., "The", "love."), which breaks exact BM25 matches. Before stop-words are stripped, the incoming 15-word string is explicitly normalized.
+- The string is forcefully converted to lowercase via `str.lower()`.
+- Punctuation is stripped via native `str.translate()`.
+
+*This mutation occurs strictly inside Lane A.* Lane B (FAISS) receives the raw capitalized and punctuated text because the embedding model relies on exact punctuation to map syntactic relationships properly.
+
+#### Step 2: Stop-Word Stripping
 
 To guarantee **absolute deterministic stripping** and avoid regression risks from third-party library updates (NLTK, spaCy, etc.), Still uses a **custom, hardcoded array** converted into a hash set in memory. The list is deliberately minimal:
 
@@ -133,13 +144,12 @@ When the buffer flushes early due to the slow-speech TTL timeout (e.g., only 8 w
 
 **Time elapsed: ~55 ms**
 
-See [intent_classification.md](intent_classification.md) for the full specification. The search engine receives the intent evaluation as a categorical score:
+See [intent_classification.md](intent_classification.md) for the full specification. The search engine receives the intent evaluation as a boolean state:
 
-| Intent Score | Meaning |
+| Trigger State | Meaning |
 |-------------|---------|
-| **High** | The pastor is actively quoting or directing the congregation to a scripture |
-| **Medium** | Ambiguous — could be quoting or referencing casually |
-| **Low** | Casual mention of a biblical narrative or theme, not a direct quote |
+| **True** | Explicit positive biblical trigger phrase identified (e.g., "Turn to") |
+| **False** | Ambiguous or casual mention; defaults to False unless negative override found |
 
 ---
 
@@ -147,12 +157,12 @@ See [intent_classification.md](intent_classification.md) for the full specificat
 
 **Time elapsed: ~75 ms**
 
-The final routing decision combines the Confidence Score and the Intent Score:
+The final routing decision combines the Confidence Score and the Boolean Trigger State:
 
-| Confidence | Intent | Action |
-|-----------|--------|--------|
-| ≥ 85% | High | **Auto-Display** — bypass operator, push directly to WebSocket → OBS |
-| ≥ 85% | Medium | **Auto-Display** — high confidence overrides ambiguity |
+| Confidence | Trigger State | Action |
+|-----------|---------------|--------|
+| ≥ 85% | True | **Auto-Display** — bypass operator, push directly to WebSocket → OBS |
+| ≥ 85% | False | **Operator Review Queue** — high confidence, but needs human validation |
 | 40–84% | Any | **Operator Review Queue** — subject to LRU deduplication |
 | < 40% | Any | **Discard** — text appended to transcript, search results dropped |
 

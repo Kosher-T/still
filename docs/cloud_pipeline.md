@@ -168,6 +168,16 @@ def queue_for_later(transcript: str):
         f.write(json.dumps(payload) + '\n')
 ```
 
+### Operator Consent Gate & Backlog Processing
+
+If the system was packed away without internet for weeks, the offline queue script would historically attempt to silently process the backlog of monolithic LLM requests the next time it boots. This immediately hijacked network bandwidth and CPU cycles during a new live service.
+
+To prevent this, background batching must not hijack the system silently:
+
+- Upon boot, the initializer checks if the `OFFLINE_QUEUE_PATH` file contains data.
+- If data exists, the Main Thread UI raises a non-blocking, critical alert: *"X past services are pending cloud extraction. Process now or pause until after the current service?"*
+- The operator explicitly dictates when network bandwidth is allocated to backlog processing.
+
 ---
 
 ## Reconnection Polling: Exponential Backoff with Jitter

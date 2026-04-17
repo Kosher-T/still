@@ -12,10 +12,9 @@ All model placement follows a strict rule: **only the primary STT model touches 
 |-------|---------|-------------|---------------------|
 | Custom Faster-Whisper (STT) | GPU | VRAM | ~1–2 GB (model-dependent) |
 | `all-MiniLM-L6-v2` (Embedding) | CPU | RAM | ~90 MB |
-| Fine-tuned DistilBERT (Intent) | CPU | RAM | ~250 MB |
 | FAISS Index (186K verses × 384 dims) | CPU | RAM | ~280 MB |
 | BM25 Inverted Index | CPU | RAM | ~50–100 MB |
-| `intent_triggers.json` (Fallback) | CPU | RAM | < 1 KB |
+| `intent_triggers.json` (Heuristic Intent) | CPU | RAM | < 1 KB |
 | Vosk `vosk-model-small-en-us` (Failover) | CPU | RAM | ~50 MB |
 
 > [!NOTE]
@@ -48,7 +47,7 @@ The core engine that converts live audio into text in real-time using a continuo
 | **Execution** | CPU only (standard RAM) |
 | **Model size** | ~50 MB |
 | **Streaming** | Native word-by-word streaming |
-| **Activation** | Triggered only when the primary GPU model crashes or causes a critical thermal event that cannot be resolved by power throttling |
+| **Activation** | Load completely dormant via Warm Standby (0 CPU cycles) into RAM during Phase 1. Asynchronously drained if GPU model crashes or Queue A backs up to computing latency limits |
 
 Vosk is the **final fail-safe**. It runs entirely on the CPU, producing lower-quality transcription but ensuring the service never goes dark. See [threading_and_lifecycle.md](threading_and_lifecycle.md) for the acknowledgment receipt protocol that ensures zero audio loss during the GPU → CPU failover transition.
 
@@ -89,27 +88,17 @@ Activated only if the primary model causes unacceptable CPU latency during testi
 
 Determines whether the pastor is actively quoting scripture or casually referencing a biblical narrative. See [intent_classification.md](intent_classification.md) for the full specification.
 
-### Primary: Fine-Tuned DistilBERT
+### Primary: `intent_triggers.json` (Heuristic Boolean State)
 
 | Property | Value |
 |----------|-------|
-| **Base model** | DistilBERT (Hugging Face) |
-| **Model size** | ~250 MB |
-| **Execution** | CPU (standard RAM) |
-| **Output** | Categorical: High / Medium / Low intent score |
-| **Inference time** | ~15–20 ms |
-
-DistilBERT is a compressed language model that accurately detects quoting context in real-time without consuming GPU resources.
-
-### Backup: `intent_triggers.json` (String Matching)
-
-| Property | Value |
-|----------|-------|
-| **Compute cost** | Zero (simple string inclusion checks) |
+| **Compute cost** | Zero C-level regex compilation |
 | **Storage** | < 1 KB in RAM |
-| **Activation** | Automatic when DistilBERT is bypassed or fails |
+| **Execution** | CPU (standard RAM) |
+| **Output** | Boolean Trigger State: True / False |
+| **Inference time** | < 1 ms |
 
-A flat JSON file containing arrays of pastoral trigger phrases (e.g., "turn to," "open your bibles," "verse") loaded into RAM at startup. Provides a brittle but highly reliable safety net using basic `if any(trigger in text ...)` matching. See [intent_classification.md](intent_classification.md) for the full schema and matching logic.
+A flat JSON file containing arrays of pastoral trigger phrases (e.g., "turn to," "open your bibles," "verse") converted into bounded Regular Expressions during Phase 1. It operates with zero overhead during live service and absorbs filler words automatically. See [intent_classification.md](intent_classification.md) for the full schema and compilation logic.
 
 ---
 

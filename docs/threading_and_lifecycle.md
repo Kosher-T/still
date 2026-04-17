@@ -78,13 +78,22 @@ graph LR
 4. **Thread 2 pushes** the resulting text to Queue B.
 5. **Thread 2 acknowledges** the chunk. Only now is the chunk purged from Queue A's pending state.
 
-### Failover Replay
+### Latency-Triggered Failover & Queue Draining
 
-If Thread 2 crashes (GPU thermal failure, OOM, driver crash):
+An initial assumption was that if the GPU throttles and inference runs slower than real-time, standard RAM would eventually run Out of Memory (OOM) due to Queue A backing up. However, 16kHz mono 32-bit float audio generates exactly 64 KB/sec. One hour of backlog is ~230 MB. RAM OOM is mathematically impossible. The actual danger is **Latency Drift**—the broadcast text falling minutes behind the live pastor.
 
-1. The system flags all **unacknowledged audio chunks** as failed.
-2. A new **Vosk thread** is initialized (CPU-only, `vosk-model-small-en-us`).
-3. The Vosk thread pulls the failed, unacknowledged chunks from Queue A first, transcribing them before moving on to live audio.
+To prevent drift, Queue A enforces latency memory bounds:
+
+1. **Queue A Bounds:** Queue A is monitored for size limits. At 100ms block sizes, a queue depth of 150 items equates to exactly 15 seconds of transcription lag.
+2. **Compute Failure:** If Queue A exceeds 150 items, the system declares a Compute Failure, halts Thread 2 (GPU), and immediately triggers the Vosk failover protocol to cap maximum broadcast latency.
+
+#### Failover Replay Sequence
+
+When Failover is triggered:
+
+1. The system flags all **unacknowledged audio chunks** as pending.
+2. **Warm Standby:** The Vosk model (`vosk-model-small-en-us`) is already loaded completely dormant (consuming zero CPU cycles) into standard RAM during Phase 1 Initialization. Transition spin-up time is exactly 0 milliseconds.
+3. **Queue Draining:** Queue A remains unbounded. Thread 1 continues pushing audio chunks uninterrupted. Once routing is flipped to Vosk, the highly CPU-optimized model (running at 20x–30x real-time) burns through the backlogged unacknowledged chunks instantly, preventing any dropped audio.
 4. Zero audio data is lost during the transition.
 
 > [!NOTE]

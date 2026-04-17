@@ -85,9 +85,9 @@ graph LR
    - FAISS vector index (186,000+ verse embeddings, 384 dimensions each) loaded into RAM
    - BM25 inverted index loaded into RAM
    - `all-MiniLM-L6-v2` embedding model loaded via ONNX Runtime (CPU execution provider)
-   - `DistilBERT` intent classifier loaded into RAM
-   - `intent_triggers.json` deserialized into native Python dictionary sets (permanent RAM resident)
+   - `intent_triggers.json` deserialized and algorithmically compiled into bounded Token-Window Regex statements
    - Custom fine-tuned Faster-Whisper STT model loaded into GPU VRAM
+   - Vosk failover model (`vosk-model-small-en-us`) loaded completely dormant into standard RAM (Warm Standby)
    - `pynvml` initialized, GPU handle acquired
    - Session UUID generated (e.g., `2026-04-16_AM`) for sequence ID scoping
    - SQLite WAL database connection opened
@@ -102,7 +102,7 @@ This is the active service loop. It runs continuously until the operator ends th
 |-------|-------------|-------------|
 | **2A: Transcription** | Thread 1 captures audio → Queue A → Thread 2 transcribes → sliding window fills → Queue B | Continuous |
 | **2B: Search & Scoring** | BM25 + FAISS run in parallel → RRF fusion → Min-Max normalization → 0–100% confidence | ~35 ms |
-| **2C: Intent Check** | DistilBERT (or JSON fallback) evaluates quote intent: High / Medium / Low | ~20 ms |
+| **2C: Intent Check** | Regex Triggers evaluate quote intent as a Boolean State: True / False | < 1 ms |
 | **2D: Display Decision** | Auto-display (>85% + High intent), operator queue (moderate + Low intent), or discard | ~5 ms |
 | **2E: Persistence** | All events pushed to DB Write Queue asynchronously | Non-blocking |
 | **2F: Hardware Monitoring** | Thread 5 polls GPU temperature, throttles/restores power as needed | Every N seconds |
