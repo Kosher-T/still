@@ -65,13 +65,16 @@ graph LR
 ### Queue B — Text Pipeline
 - **Producer:** Thread 2 (STT Inference), via the 15-word sliding window
 - **Consumer:** Thread 3 (Search & Scoring)
-- **Payload:** 15-word text blocks (or partial blocks after TTL flush)
+- **Payload:** Complete JSON-like dictionary: `{'session_id', 'sequence_id', 'timestamp_ms', 'text_chunk'}`. Thread 3 uses this exact sequence ID when committing search results.
 
 ### Database Write Queue
 - **Producers:** Thread 2 (raw STT text), Thread 3 (search metrics, display events), Main Thread (UI events)
 - **Consumer:** Thread 4 (DB Writer)
 - **Payload:** Independent event payloads with monotonic sequence IDs and session UUIDs
 - **Guarantee:** Single-writer serialization eliminates all SQLite locking conflicts
+
+> [!NOTE]
+> **UI to Display Race Condition:** When the operator clicks "Show" on a queued verse, the WebSocket Push is fired asynchronously (`asyncio.create_task`) for instant display, while the database log is pushed to the unconstrained DB Write Queue. The WebSocket execution never awaits database write confirmation.
 
 ---
 

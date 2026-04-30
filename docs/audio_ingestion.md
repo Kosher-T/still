@@ -77,9 +77,9 @@ stream = sd.InputStream(
 
 ## Audio Source Priority
 
-### Primary: Wireless Audio Transmission
+### Primary: Wireless-Only Guarantee
 
-Securing a clean, dedicated audio feed is the **primary objective**. A wireless transmitter provides signal isolation from the room acoustics and utilizes zero system compute.
+The audio input is **mathematically guaranteed** to be a clean, isolated wireless feed. A wireless transmitter provides signal isolation from the room acoustics and utilizes zero system compute.
 
 | Component | Example Hardware | Role |
 |-----------|-----------------|------|
@@ -89,19 +89,22 @@ Securing a clean, dedicated audio feed is the **primary objective**. A wireless 
 
 **Why FOH isolation matters:** A main mix output contains music, effects, congregation noise, and dynamic compression — all of which contaminate the STT input. An isolated Aux Send or Matrix routed pre-fader from the pastor's vocal channel provides the cleanest possible signal.
 
-### Last Resort: DeepFilterNet 3 (DFN 3) Pre-Processing
+### DFN 3 Deprecated
 
-If hardware budgeting for a wireless unit is denied and physical audio routing is impossible, room audio from an ambient microphone must be salvaged via software noise reduction.
+All software-based noise-reduction bridges (DeepFilterNet 3) and Virtual Audio Cable routing have been **permanently struck from the architecture** to eliminate points of failure and CPU contention. The system relies entirely on the wireless hardware connection.
 
-| Property | Value |
-|----------|-------|
-| **Algorithm** | DeepFilterNet 3 (DFN 3) |
-| **Implementation** | C++ plugin (not Python — avoids GIL contention) |
-| **Signal chain** | Room audio → DFN 3 noise reduction → `sounddevice` → Queue A → STT |
-| **Compute cost** | CPU only — no VRAM consumed |
+---
 
-> [!CAUTION]
-> **Critical requirement:** If DFN 3 is used, the custom STT model must be **specifically fine-tuned on DFN 3's output** within the target church sanctuary. DFN 3 introduces characteristic processing artifacts (spectral smoothing, transient smearing) that a standard Whisper model has never seen. Without adaptation, transcription accuracy will degrade significantly. See [ai_models.md](ai_models.md) for details.
+## The FATAL_AUDIO_LOSS Protocol
+
+If the hardware connection to the wireless receiver drops, `sounddevice` will throw a `PortAudioError`. The system handles this with strict rigidity:
+
+1. **No Automated Fallback:** The application will not attempt an automated fallback or device swap.
+2. **Alert Trigger:** The exception is caught, and a `FATAL_AUDIO_LOSS` payload is pushed to the Database and UI threads.
+3. **Execution Halts:** Transcription pauses immediately.
+4. **Visual Lockout:** The UI strictly locks and displays a massive, undeniable visual alert: **"AUDIO INTERFACE LOST - CHECK WIRELESS RECEIVER."**
+
+Normal operation resumes only upon direct operator intervention.
 
 ---
 
@@ -110,17 +113,17 @@ If hardware budgeting for a wireless unit is denied and physical audio routing i
 ```mermaid
 graph TD
     classDef primary fill:#1f77b4,stroke:#fff,stroke-width:2px,color:#fff;
-    classDef fallback fill:#ff7f0e,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef error fill:#d62728,stroke:#fff,stroke-width:2px,color:#fff;
 
-    FOH["PRIMARY: Wireless Transmitter<br>FOH Aux Send → Wireless → PC"]:::primary
-    RM["LAST RESORT: Room Microphone<br>Ambient Mic → DFN 3 → PC"]:::fallback
+    FOH["WIRELESS ONLY<br>FOH Aux Send → Wireless → PC"]:::primary
     
     SD["<b>sounddevice</b><br>16kHz / Mono / f32"]
     QA["<b>Queue A</b><br>(with ack receipts)"]
     T2["<b>Thread 2: STT</b><br>Faster-Whisper (GPU Inference)"]
+    FL["<b>FATAL_AUDIO_LOSS</b><br>UI Lockout"]:::error
 
     FOH --> SD
-    RM --> SD
+    SD -- "PortAudioError" --> FL
     
     SD --> QA
     QA --> T2

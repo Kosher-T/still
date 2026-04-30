@@ -123,6 +123,9 @@ CREATE TABLE search_results (
     action_taken    TEXT NOT NULL,      -- "auto_display", "queued", "discarded"
     FOREIGN KEY (session_id, sequence_id) REFERENCES transcripts(session_id, sequence_id)
 );
+
+> [!CAUTION]
+> **Offline Indexing Integrity:** To guarantee the BM25 `source_text` matches the offline Bible indexes, the exact punctuation stripping map (stripping apostrophes, converting hyphens/slashes to spaces) is enforced symmetrically during both the offline FAISS/BM25 database building and live search execution.
 ```
 
 ### `display_events` Table
@@ -189,12 +192,12 @@ def push_to_queue(text_chunk, session_id):
 
 The Sequence ID resets to 1 on every fresh application boot. To prevent collisions across services stored in the same database and to handle mid-service application crashes seamlessly:
 
-1. During **Phase 1 Initialization**, the system queries the `sessions` table for any row where `ended_at` is `NULL` (indicating an interrupted service within the last 4 hours).
-2. If an open session is found, the application re-adopts that exact **Session UUID** (e.g., `2026-04-16_AM`).
-3. To maintain monotonic sequencing, the system sets the local counter: `sequence_counter = MAX(sequence_id) + 1` from the `transcripts` table for that session.
-4. If no open session is found, a new Session UUID is generated, and `sequence_counter` starts at 1.
+1. **Phase 1 Interruption Gate:** During initialization, the system queries the `sessions` table strictly for any row where `ended_at IS NULL`. The arbitrary 4-hour crash-stitching window is deprecated.
+2. If an open session is found, a **blocking UI prompt** forces the operator to make a choice:
+   - **"Resume":** The application re-adopts that exact Session UUID (e.g., `2026-04-16_AM`). To maintain monotonic sequencing, the system sets the local counter: `sequence_counter = MAX(sequence_id) + 1` from the `transcripts` table for that session.
+   - **"Start New":** The system closes the old session, generates a new Session UUID, and `sequence_counter` starts at 1.
 
-This Session Stitching guarantees an unbroken sequence ID chain under a single session UUID, requiring zero changes to the LLM monolithic payload logic if the software crashes and is restarted mid-service.
+This deterministic session stitching guarantees an unbroken sequence ID chain under a single session UUID, requiring zero changes to the LLM monolithic payload logic if the software crashes and is restarted mid-service.
 
 #### Reconstruction Scoping
 

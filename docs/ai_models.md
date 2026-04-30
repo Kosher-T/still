@@ -26,19 +26,15 @@ All model placement follows a strict rule: **only the primary STT model touches 
 
 The core engine that converts live audio into text in real-time using a continuous streaming architecture driven by a 15-word sliding window.
 
-### Primary: Custom Fine-Tuned Streaming STT
+### Primary: Continuous Stream Faster-Whisper
 
 | Property | Value |
 |----------|-------|
-| **Base** | Faster-Whisper (CTranslate2 backend) |
-| **Execution** | GPU (VRAM) |
-| **Fine-tuning** | Heavily trained off-site via Kaggle on the target pastor's specific voice |
+| **Base** | Custom Faster-Whisper utilizing the CTranslate2 C++ backend |
+| **Execution** | Strictly GPU (VRAM) |
+| **Variant** | `tiny.en` (quantized) to maximize speed and minimize VRAM footprint |
 | **Input format** | 16 kHz, mono, 32-bit float (see [audio_ingestion.md](audio_ingestion.md)) |
-| **Architecture** | Continuous stream — no VAD chunking, no acoustic pause triggers |
-
-**Why fine-tune off-site?** Training is computationally expensive and would saturate the local 4 GB VRAM. By fine-tuning on Kaggle's GPU infrastructure, the training compute is completely offloaded, and the local GPU is reserved strictly for optimized real-time inference.
-
-**DFN 3 adaptation:** If a clean wireless audio feed cannot be secured and corrupted room audio must be salvaged via DeepFilterNet 3, the STT model must be specifically fine-tuned on the artifact-heavy audio output produced by DFN 3 within the target church sanctuary. This ensures the model learns to transcribe accurately from DFN 3's characteristic processing artifacts rather than being confused by them.
+| **Architecture** | Fed via a 15-word sliding window to simulate continuous streaming without relying on acoustic pauses |
 
 ### Backup: Vosk (`vosk-model-small-en-us`)
 
@@ -47,9 +43,9 @@ The core engine that converts live audio into text in real-time using a continuo
 | **Execution** | CPU only (standard RAM) |
 | **Model size** | ~50 MB |
 | **Streaming** | Native word-by-word streaming |
-| **Activation** | Load completely dormant via Warm Standby (0 CPU cycles) into RAM during Phase 1. Asynchronously drained if GPU model crashes or Queue A backs up to computing latency limits |
+| **Activation** | Managed via a **Pre-Allocated Dormant Fallback Thread**. Spawned during Phase 1 but blocked by an OS-level event flag (0 CPU cycles). Unblocks in microseconds during a Compute Failure. |
 
-Vosk is the **final fail-safe**. It runs entirely on the CPU, producing lower-quality transcription but ensuring the service never goes dark. See [threading_and_lifecycle.md](threading_and_lifecycle.md) for the acknowledgment receipt protocol that ensures zero audio loss during the GPU → CPU failover transition.
+Vosk is the **final fail-safe**. It runs entirely on the CPU, producing lower-quality transcription but ensuring the service never goes dark. See [threading_and_lifecycle.md](threading_and_lifecycle.md) for the CPU starvation prevention rules and acknowledgment receipt protocol that ensure zero audio loss during the GPU → CPU failover transition.
 
 > [!IMPORTANT]
 > Standalone Voice Activity Detection (VAD) chunking has been **deprecated** in favor of the fixed-word sliding window architecture. This reduces system complexity and conserves GPU compute.

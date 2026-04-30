@@ -85,16 +85,18 @@ An initial assumption was that if the GPU throttles and inference runs slower th
 To prevent drift, Queue A enforces latency memory bounds:
 
 1. **Queue A Bounds:** Queue A is monitored for size limits. At 100ms block sizes, a queue depth of 150 items equates to exactly 15 seconds of transcription lag.
-2. **Compute Failure:** If Queue A exceeds 150 items, the system declares a Compute Failure, halts Thread 2 (GPU), and immediately triggers the Vosk failover protocol to cap maximum broadcast latency.
+2. **Compute Failure:** If Queue A exceeds 150 items, the system declares a Compute Failure. The Main Thread flips an OS-level event flag to unblock the fallback thread.
 
-#### Failover Replay Sequence
+#### Failover Replay Sequence (Supervisor Pattern)
 
 When Failover is triggered:
 
-1. The system flags all **unacknowledged audio chunks** as pending.
-2. **Warm Standby:** The Vosk model (`vosk-model-small-en-us`) is already loaded completely dormant (consuming zero CPU cycles) into standard RAM during Phase 1 Initialization. Transition spin-up time is exactly 0 milliseconds.
-3. **Queue Draining:** Queue A remains unbounded. Thread 1 continues pushing audio chunks uninterrupted. Once routing is flipped to Vosk, the highly CPU-optimized model (running at 20x–30x real-time) burns through the backlogged unacknowledged chunks instantly, preventing any dropped audio.
-4. Zero audio data is lost during the transition.
+1. **The Pivot:** The system flags all **unacknowledged audio chunks** as pending. Thread 2 (GPU) is halted.
+2. **Phase 1 Initialization:** The Vosk model (`vosk-model-small-en-us`) is already loaded into standard RAM, and Thread 2-Fallback was spawned during Phase 1 but blocked by an OS-level event flag (consuming 0 CPU cycles). Transition spin-up time is exactly 0 milliseconds when the flag is flipped.
+3. **CPU Starvation Prevention:** To prevent Vosk from monopolizing the CPU while draining the 150-chunk backlog and starving the Search/Database threads:
+   - OpenBLAS/MKL threads are hard-capped via environment variables (`OMP_NUM_THREADS`, etc.) during Phase 1.
+   - The drain loop explicitly yields to the OS scheduler (`time.sleep(0.01)`) between chunks.
+4. **Queue Draining:** Thread 1 continues pushing audio chunks. Vosk burns through the unacknowledged chunks safely, preventing any dropped audio.
 
 > [!NOTE]
 > The acknowledgment protocol adds minimal overhead during normal operation (a simple state flag toggle). Its cost is justified entirely by the zero-data-loss guarantee during GPU failover events.

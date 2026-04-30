@@ -268,21 +268,31 @@ Visual themes are implemented as CSS classes. Switching themes requires zero Jav
 
 ---
 
-## Component 3: Broadcast Ingestion
+## Component 3: Display & Broadcast Routing
 
-### OBS Studio Configuration
+All graphical rendering is strictly offloaded from the Python execution environment. There is no NDI generation in Python, nor is there a custom Smart TV app.
 
+### Option A: Broadcast Software (Primary)
+
+The Python WebSocket dispatcher feeds an HTML/CSS interface into the Browser Source of an established broadcast software.
+
+**OBS Studio Configuration**
 1. **Add a Browser Source** to your scene.
-2. **URL:** Point to the local HTML file (e.g., `file:///path/to/still/display.html`) or serve it via a local HTTP server (`http://localhost:8080/display.html`).
-3. **Resolution:** 1920×1080 (match your output resolution).
+2. **URL:** Point to the local HTML file (e.g., `file:///path/to/still/display.html`).
+3. **Resolution:** 1920×1080.
 4. **Custom CSS:** Leave empty — all styling is in `themes.css`.
-5. **Transparency:** The Browser Source renders with a transparent background by default. The scripture text floats over whatever is beneath it in the OBS scene.
+5. **Transparency:** Default is transparent.
 
-### vMix Configuration
-
+**vMix Configuration**
 1. Add a **Web Browser Input**.
-2. Point to the same URL.
-3. Layer it above your camera/media sources.
+2. Point to the same URL and layer it above camera sources.
+
+### Option B: Hardware Kiosk Mode (Direct TV Output)
+
+For direct HDMI connection to a TV without OBS, the Main Thread launches an uncompromising Kiosk Browser to the secondary monitor coordinates.
+
+> [!CAUTION]
+> **VRAM Protection:** The execution strictly passes `--disable-gpu` and `--disable-software-rasterizer`, forcing the Chrome renderer onto standard RAM and CPU to protect the 4 GB GPU boundary for the Faster-Whisper model.
 
 ### Video Backgrounds
 
@@ -303,9 +313,12 @@ OBS composites these two layers using its internal, hardware-accelerated renderi
 | Source | Trigger | Flow |
 |--------|---------|------|
 | **Auto-Display** | Confidence ≥ 85% + High/Medium Intent | Search Thread → `broadcast_display()` → WebSocket → HTML → OBS |
-| **Operator Approval** | Operator clicks "Display" on a queued verse | UI Thread → `broadcast_display()` → WebSocket → HTML → OBS |
-| **Manual Override** | Operator types a verse reference and clicks "Show" | UI Thread → `broadcast_display()` → WebSocket → HTML → OBS |
-| **Clear Screen** | Operator clicks "Clear" or display timer expires | UI Thread → `broadcast_display({"action": "clear"})` → WebSocket → HTML → OBS |
+| **Operator Approval** | Operator clicks "Show" | UI Thread → `broadcast_display()` → WebSocket → HTML → OBS |
+| **Manual Override** | Operator types ref and clicks "Show" | UI Thread → `broadcast_display()` → WebSocket → HTML → OBS |
+| **Clear Screen** | Operator clicks "Clear" / timer expires | UI Thread → `broadcast_display({"action": "clear"})` → WebSocket → HTML → OBS |
+
+> [!NOTE]
+> **UI to Display Race Condition:** When the operator clicks "Show" on a queued verse, the execution is strictly decoupled. The **WebSocket Push** is fired asynchronously (`asyncio.create_task`) to update the screen instantly. Simultaneously, the **Database Log** is pushed to the unconstrained Database_Write_Queue. The WebSocket execution never awaits database write confirmation.
 
 ---
 

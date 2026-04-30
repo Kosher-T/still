@@ -143,7 +143,7 @@ The church's internet connection may drop at the end of the service, preventing 
 
 ### The Solution
 
-If the initial API request fails due to a network error, the payload is immediately routed to a **local offline queue**. The system then polls for connectivity restoration.
+If the initial API request fails due to a network error, **or if the cloud LLM pipeline encounters an HTTP 429 (Rate Limit) or HTTP 5xx (Server Error) across the entire failover chain**, the monolithic payload is preserved in a **local offline queue**. The system then categorizes the failure and polls for restoration.
 
 ```python
 async def send_to_cloud(transcript: str):
@@ -151,8 +151,12 @@ async def send_to_cloud(transcript: str):
         result = await extract_with_retry(transcript)
         save_extraction_results(result)
     except NetworkError:
-        queue_for_later(transcript)
-        start_reconnect_polling()
+        queue_for_later(transcript, reason="network_down")
+        start_reconnect_polling(reason="network_down")
+    except TerminalAPIError:
+        # e.g., HTTP 429 or 5xx across all failover models
+        queue_for_later(transcript, reason="api_exhausted")
+        start_reconnect_polling(reason="api_exhausted")
 ```
 
 The queued payload is persisted to disk (not just RAM) to survive application restarts:
@@ -224,22 +228,26 @@ async def reconnect_loop():
 | 6 | 160 s | 128–192 s |
 | 7+ | 300 s (cap) | 240–360 s |
 
-### Verification Ping
+### Segregated Verification Ping
 
-The connection is officially "restored" only when an HTTP GET request to a highly available endpoint returns a `200 OK` within a strict timeout:
+The system distinguishes between local network failures and remote API exhaustion when polling:
+
+- **`network_down` payloads**: Unblocked by a successful HTTP GET request to `1.1.1.1` (verifying local internet is restored).
+- **`api_exhausted` payloads**: Unblocked *only* by pinging the specific LLM provider's status/health endpoint (e.g., OpenAI/Groq API status) using the exponential backoff schedule to prevent ban loops.
 
 ```python
-async def check_connection() -> bool:
+async def check_connection(reason: str) -> bool:
+    target_url = HEALTH_CHECK_URL if reason == "network_down" else LLM_STATUS_URL
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(HEALTH_CHECK_URL, timeout=aiohttp.ClientTimeout(total=TIMEOUT)) as resp:
+            async with session.get(target_url, timeout=aiohttp.ClientTimeout(total=TIMEOUT)) as resp:
                 return resp.status == 200
     except (aiohttp.ClientError, asyncio.TimeoutError):
         return False
 ```
 
 > [!TIP]
-> Using `1.1.1.1` (Cloudflare DNS) as the health check endpoint is recommended because it is one of the most highly available, globally distributed services. Alternatively, use the target API's own health check endpoint to verify both internet connectivity AND API availability in a single request.
+> Using `1.1.1.1` (Cloudflare DNS) is recommended for `network_down` checks because it is highly available. For `api_exhausted`, querying the provider's specific health endpoint ensures you don't dump the queue into a still-broken API.
 
 ---
 
