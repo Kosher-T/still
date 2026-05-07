@@ -1,6 +1,6 @@
-# Still
+# RhemaCast
 
-**Still** is a real-time sermon transcription and scripture presentation system built for live church services. It listens to the pastor's spoken audio, identifies when scripture is being quoted or paraphrased, and automatically displays the matched Bible verse on the broadcast screens — all with minimal human intervention.
+**RhemaCast** is a real-time sermon transcription and scripture presentation system built for live church services. It listens to the pastor's spoken audio, identifies when scripture is being quoted or paraphrased, and automatically displays the matched Bible verse on the broadcast screens — all with minimal human intervention.
 
 ## What It Does
 

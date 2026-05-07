@@ -1,6 +1,6 @@
 # Display and Broadcast
 
-This document specifies how Still renders scripture text and delivers it to the broadcast software (OBS/vMix) for live display to the congregation.
+This document specifies how RhemaCast renders scripture text and delivers it to the broadcast software (OBS/vMix) for live display to the congregation.
 
 ---
 
@@ -125,7 +125,7 @@ A static HTML file acts as the WebSocket client. It receives JSON payloads and u
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Still — Scripture Display</title>
+  <title>RhemaCast — Scripture Display</title>
   <link rel="stylesheet" href="themes.css">
 </head>
 <body>
@@ -278,7 +278,7 @@ The Python WebSocket dispatcher feeds an HTML/CSS interface into the Browser Sou
 
 **OBS Studio Configuration**
 1. **Add a Browser Source** to your scene.
-2. **URL:** Point to the local HTML file (e.g., `file:///path/to/still/display.html`).
+2. **URL:** Point to the local HTML file (e.g., `file:///path/to/rhemacast/display.html`).
 3. **Resolution:** 1920×1080.
 4. **Custom CSS:** Leave empty — all styling is in `themes.css`.
 5. **Transparency:** Default is transparent.

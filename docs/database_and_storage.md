@@ -1,12 +1,12 @@
 # Database and Storage
 
-This document specifies how Still persists data during a live service, including the SQLite database architecture, the single-writer queue pattern, chronological reconstruction via monotonic sequence IDs, and the append-only flat file fail-safe.
+This document specifies how RhemaCast persists data during a live service, including the SQLite database architecture, the single-writer queue pattern, chronological reconstruction via monotonic sequence IDs, and the append-only flat file fail-safe.
 
 ---
 
 ## Architecture Overview
 
-Still uses a **single SQLite database file** in WAL (Write-Ahead Logging) mode, guarded by a dedicated single-writer thread that serializes all inserts. A parallel append-only flat file provides a zero-overhead fail-safe for the raw transcript.
+RhemaCast uses a **single SQLite database file** in WAL (Write-Ahead Logging) mode, guarded by a dedicated single-writer thread that serializes all inserts. A parallel append-only flat file provides a zero-overhead fail-safe for the raw transcript.
 
 ```mermaid
 graph TD
@@ -36,7 +36,7 @@ Enabling WAL (Write-Ahead Logging) mode provides two critical guarantees:
 ```python
 import sqlite3
 
-conn = sqlite3.connect('still_service.db')
+conn = sqlite3.connect('rhemacast_service.db')
 conn.execute("PRAGMA journal_mode=WAL")
 conn.execute("PRAGMA synchronous=NORMAL")  # Balanced durability vs speed
 ```
@@ -238,7 +238,7 @@ OS-level file locking is bypassed entirely by programmatically forcing the log p
 
 | Property | Convention |
 |----------|-----------|
-| **Directory** | Isolated application data path (`C:\ProgramData\Still\Logs\` on Windows, `/var/lib/still/logs/` on Linux) |
+| **Directory** | Isolated application data path (`C:\ProgramData\RhemaCast\Logs\` on Windows, `/var/lib/rhemacast/logs/` on Linux) |
 | **Filename** | ISO 8601 format: `YYYY-MM-DD_HH-MM-SS_raw_stt.log` |
 | **Example** | `2026-04-16_09-30-00_raw_stt.log` |
 

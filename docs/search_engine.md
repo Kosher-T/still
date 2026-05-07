@@ -1,6 +1,6 @@
 # The Hybrid Search Engine
 
-This document specifies exactly how Still finds Bible verses during a live sermon. The search engine operates in five sequential phases, executing in approximately 40–80 milliseconds per cycle.
+This document specifies exactly how RhemaCast finds Bible verses during a live sermon. The search engine operates in five sequential phases, executing in approximately 40–80 milliseconds per cycle.
 
 ---
 
@@ -8,7 +8,7 @@ This document specifies exactly how Still finds Bible verses during a live sermo
 
 **Time elapsed: 0 ms**
 
-Still uses a Continuous Stream (CS) STT model. The search engine does not wait for acoustic pauses — it is driven entirely by a fixed word-count buffer.
+RhemaCast uses a Continuous Stream (CS) STT model. The search engine does not wait for acoustic pauses — it is driven entirely by a fixed word-count buffer.
 
 ### Buffer Mechanics
 
@@ -76,7 +76,7 @@ Faster-Whisper outputs capitalized, punctuated text (e.g., "The", "love."), whic
 
 #### Step 2: Stop-Word Stripping
 
-To guarantee **absolute deterministic stripping** and avoid regression risks from third-party library updates (NLTK, spaCy, etc.), Still uses a **custom, hardcoded array** converted into a hash set in memory. The list is deliberately minimal:
+To guarantee **absolute deterministic stripping** and avoid regression risks from third-party library updates (NLTK, spaCy, etc.), RhemaCast uses a **custom, hardcoded array** converted into a hash set in memory. The list is deliberately minimal:
 
 ```python
 STOP_WORDS = {"the", "is", "a", "and", "to", "of", "in", "that"}

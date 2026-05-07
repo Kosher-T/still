@@ -1,6 +1,6 @@
 # System Architecture
 
-This document defines the system-wide architecture of Still: the threading model, queue topology, data flow, and the four operational phases that govern a live service from boot to archive.
+This document defines the system-wide architecture of RhemaCast: the threading model, queue topology, data flow, and the four operational phases that govern a live service from boot to archive.
 
 ---
 
@@ -20,7 +20,7 @@ The architecture strictly partitions GPU and CPU workloads to prevent VRAM conte
 
 ## Threading Model
 
-Still operates on a multi-threaded, queue-decoupled architecture. No thread directly calls another thread's functions. All inter-thread communication flows through thread-safe FIFO queues.
+RhemaCast operates on a multi-threaded, queue-decoupled architecture. No thread directly calls another thread's functions. All inter-thread communication flows through thread-safe FIFO queues.
 
 | Thread | Runs On | Responsibility |
 |--------|---------|----------------|

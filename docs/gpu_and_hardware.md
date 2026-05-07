@@ -1,6 +1,6 @@
 # GPU and Hardware Management
 
-This document specifies Still's hardware requirements, VRAM budget, GPU thermal monitoring, and the programmable power throttling mechanism that prevents catastrophic GPU crashes during a live service.
+This document specifies RhemaCast's hardware requirements, VRAM budget, GPU thermal monitoring, and the programmable power throttling mechanism that prevents catastrophic GPU crashes during a live service.
 
 ---
 

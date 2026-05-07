@@ -1,6 +1,6 @@
 # Audio Ingestion Pipeline
 
-This document specifies how Still captures, formats, and delivers the raw audio signal from the pastor's microphone to the STT inference engine.
+This document specifies how RhemaCast captures, formats, and delivers the raw audio signal from the pastor's microphone to the STT inference engine.
 
 ---
 

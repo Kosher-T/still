@@ -1,6 +1,6 @@
 # AI Models
 
-This document specifies every AI model integrated into Still, including its purpose, hardware placement, memory footprint, and backup strategy.
+This document specifies every AI model integrated into RhemaCast, including its purpose, hardware placement, memory footprint, and backup strategy.
 
 ---
 

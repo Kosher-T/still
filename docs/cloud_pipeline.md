@@ -1,6 +1,6 @@
 # Cloud Pipeline
 
-This document specifies how Still handles post-service transcript extraction via cloud LLMs, including payload construction, structured output enforcement, retry logic, offline queuing, and reconnection polling.
+This document specifies how RhemaCast handles post-service transcript extraction via cloud LLMs, including payload construction, structured output enforcement, retry logic, offline queuing, and reconnection polling.
 
 ---
 

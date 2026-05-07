@@ -1,6 +1,6 @@
 # Threading and Lifecycle Management
 
-This document specifies how Still manages thread startup, runtime synchronization, failover transitions, and safe shutdown procedures.
+This document specifies how RhemaCast manages thread startup, runtime synchronization, failover transitions, and safe shutdown procedures.
 
 ---
 

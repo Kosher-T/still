@@ -1,6 +1,6 @@
 # Intent Classification
 
-This document specifies how Still determines whether the pastor is actively quoting scripture or merely referencing a biblical narrative. Intent classification is Phase 4 of the search pipeline and executes in less than 1 millisecond.
+This document specifies how RhemaCast determines whether the pastor is actively quoting scripture or merely referencing a biblical narrative. Intent classification is Phase 4 of the search pipeline and executes in less than 1 millisecond.
 
 ---
 
