@@ -63,4 +63,9 @@ This is perhaps the most important part. **I AM DEVELOPING ON A LINUX SYSTEM, BU
 
 ---
 
+### 8. No Auto-Display (Decision)
+I have decided not to do any auto-display thing. Instead, the verses with the closest link to what is being said are placed at the top of the review queue. No auto render. I MIGHT reconsider this decision later, perhaps making it configurable, but for now, it's a no.
+
+---
+
 *I will add more notes as time goes on and I think of them.*

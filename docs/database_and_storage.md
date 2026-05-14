@@ -69,7 +69,7 @@ Every critical action in the pipeline is treated as an independent event payload
 |-------|----------|------------|-----------------|
 | **Stage 1** | Thread 2 (STT) | Raw text output | Timestamp, sequence ID, session UUID, raw text chunk, buffer word count |
 | **Stage 2** | Thread 3 (Search) | Search result metrics | Timestamp, sequence ID, source text, top verse reference, RRF raw score, confidence %, intent score, BM25 rank, FAISS rank |
-| **Stage 3** | Main Thread / Thread 3 | UI/display state change | Timestamp, sequence ID, verse reference, action taken (auto-display / queued / discarded / operator-approved / operator-cleared) |
+| **Stage 3** | Main Thread / Thread 3 | UI/display state change | Timestamp, sequence ID, verse reference, action taken (top_queued / queued / discarded / operator-approved / operator-cleared) |
 
 ---
 
@@ -120,7 +120,7 @@ CREATE TABLE search_results (
     intent_score    TEXT,              -- "high", "medium", "low"
     bm25_rank       INTEGER,           -- Rank in BM25 lane (NULL if absent)
     faiss_rank      INTEGER,           -- Rank in FAISS lane (NULL if absent)
-    action_taken    TEXT NOT NULL,      -- "auto_display", "queued", "discarded"
+    action_taken    TEXT NOT NULL,      -- "top_queued", "queued", "discarded"
     FOREIGN KEY (session_id, sequence_id) REFERENCES transcripts(session_id, sequence_id)
 );
 
@@ -140,7 +140,7 @@ CREATE TABLE display_events (
     verse_ref     TEXT    NOT NULL,
     translation   TEXT    NOT NULL,     -- e.g., "KJV", "NIV"
     theme_id      TEXT,                 -- Active display theme
-    trigger_type  TEXT    NOT NULL,     -- "auto", "operator_approved", "manual_override"
+    trigger_type  TEXT    NOT NULL,     -- "operator_approved", "manual_override"
     confidence_pct REAL,
     displayed_at  INTEGER,             -- Timestamp when actually shown on screen
     cleared_at    INTEGER              -- Timestamp when cleared from screen
@@ -300,11 +300,11 @@ def stitch_transcript(chunks):
 The `search_results` table provides a complete audit trail for tuning confidence thresholds:
 
 ```sql
--- Find all false positives: auto-displayed verses with low actual relevance
+-- Find all false positives: top-queued verses with low actual relevance
 SELECT source_text, top_verse_ref, confidence_pct, intent_score
 FROM search_results
 WHERE session_id = ?
-  AND action_taken = 'auto_display'
+  AND action_taken = 'top_queued'
 ORDER BY confidence_pct ASC;
 ```
 

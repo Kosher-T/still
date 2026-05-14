@@ -63,7 +63,7 @@
 **Resolution:** The fallback rules will be stored in an external, lightweight `intent_triggers.json` configuration file rather than being hardcoded into the application logic.
 * **Format & Storage:** The JSON file will contain arrays of common pastoral trigger phrases (e.g., "turn to," "book of," "chapter," "verse"). Configurable at startup/decicated setting.
 * **Memory Loading:** During Phase 1 (Initialization), this JSON file is read and stored permanently in standard RAM, ensuring instant access with zero disk read overhead during a live service.
-* **Execution Logic:** If the system degrades and DistilBERT is bypassed, the system falls back to basic string-matching. It scans the incoming text buffer against the JSON arrays. If a trigger phrase is detected alongside a high BM25/FAISS confidence score, the Intent Score is automatically flagged as "High" and the auto-display is triggered. This provides a brittle but highly reliable, zero-compute safety net.
+* **Execution Logic:** If the system degrades and DistilBERT is bypassed, the system falls back to basic string-matching. It scans the incoming text buffer against the JSON arrays. If a trigger phrase is detected alongside a high BM25/FAISS confidence score, the Intent Score is automatically flagged as "High" and the verse is pushed to the top of the review queue. This provides a brittle but highly reliable, zero-compute safety net.
 
 # Architecture Clarifications and Technical Specifications
 
@@ -106,7 +106,7 @@ To convert these arbitrary floating-point numbers into the required 0-100% Confi
 
 $$Confidence = \left( \frac{RRF_{observed} - RRF_{min}}{RRF_{max} - RRF_{min}} \right) \times 100$$
 
-This provides a continuous mathematical curve. If empirical testing determines that verses hovering at 60% confidence are triggering false positives in the Auto-Display tier, the $RRF_{min}$ variable in the code is adjusted to artificially compress the scale, forcing lower-ranked combinations to yield lower percentage outputs.
+This provides a continuous mathematical curve. If empirical testing determines that verses hovering at 60% confidence are triggering false positives in the top tier of the review queue, the $RRF_{min}$ variable in the code is adjusted to artificially compress the scale, forcing lower-ranked combinations to yield lower percentage outputs.
 
 ---
 
@@ -117,7 +117,7 @@ The search engine cannot be prevented from evaluating overlapping words because 
 The execution pipeline is handled as follows:
 
 * **The Cache:** A small, fast dictionary is allocated in standard RAM (the LRU Cache) specifically for tracking queued outputs.
-* **The Interception:** When Phase 5 determines a verse meets the criteria for the Operator Review Queue (moderate confidence, low intent), the system intercepts the dynamically generated NDI payload or the raw scripture reference (e.g., "John 3:16") before it is pushed to the UI or the `Database_Write_Queue`.
+* **The Interception:** When Phase 5 determines a verse meets the criteria for the Operator Review Queue (moderate confidence, low intent), the system intercepts the display payload or the raw scripture reference (e.g., "John 3:16") before it is pushed to the UI or the `Database_Write_Queue`.
 * **The Check:** The system checks the LRU cache. If the exact Verse Reference already exists in the cache, the new result is immediately discarded as a duplicate. If it does not exist, it is pushed to the operator's Review Queue.
 * **The TTL (Time-To-Live):** The newly added Verse Reference is assigned a strict TTL (e.g., 15 to 20 seconds). Once the TTL expires, the reference is automatically purged from the cache.
 
@@ -131,7 +131,7 @@ The architectural foundation for this approach already exists through the `Datab
 
 * **Stage 1:** The raw STT output is persisted. The exact millisecond the 15-word sliding window fires, the raw text string must be packaged with its timestamp and pushed to the queue.
 * **Stage 2:** Search result metrics are logged. When the fusion and scoring phase completes, the top verse reference, confidence score, and intent score are pushed to the queue to create a forensic audit trail.
-* **Stage 3:** UI state changes are captured, logging whenever a verse is auto-displayed via the dynamic NDI payload or pushed to the operator review queue. 
+* **Stage 3:** UI state changes are captured, logging whenever a verse is pushed to the operator review queue or approved for broadcast.
 
 Because the single, dedicated background thread executes these SQL inserts sequentially, the host OS and SQLite will naturally batch these continuous micro-writes without ever forcing the live transcription engines to wait for the hard drive to spin.
 
@@ -169,7 +169,7 @@ The established, production-standard execution for NDI graphics pipelines requir
 
 The execution pipeline operates as follows:
 
-* **Local Rendering:** When the system decides to auto-display a verse, the Python application must use an internal graphics framework (such as PyQt, OpenCV, or an offscreen HTML renderer) to draw the exact scripture text, the reference, and the chosen visual theme onto a transparent digital canvas (e.g., 1920x1080 resolution).
+* **Local Rendering (DEPRECATED):** If the system were to auto-display a verse (logic now removed), the Python application would have used an internal graphics framework...
 * **Frame Conversion:** This rendered canvas is converted into a raw byte array representing the exact color and alpha (transparency) values of every single pixel on the screen.
 * **NDI Transmission:** This completed RGBA byte array is passed into the NDI SDK (via wrappers like `ndi-python`) as a video frame.
 * **Broadcast Ingestion:** OBS or vMix connects to this NDI source and overlays it like a standard camera feed. It requires zero data parsing, zero schema logic, and zero rendering compute from the broadcast software.
@@ -224,7 +224,7 @@ This specific schema is the industry standard for fast, in-memory text matching 
 **Question:** If the pastor speaks 14 words and pauses for a two-minute musical transition, does the inference engine hang indefinitely waiting for the 15th word, and how do we score the resulting fragment?
 
 **Resolution:** * **The TTL Flush [INDUSTRY STANDARD]:** The system must implement a strict Time-To-Live (TTL) timeout on the ingestion buffer (e.g., 3 to 5 seconds of silence). Upon timeout, the system executes a partial search on the current buffer contents (e.g., the 14 words) through the BM25 and FAISS lanes. Immediately following this evaluation, the buffer must be completely flushed. Retaining stale text across a two-minute pause and concatenating it with newly resumed speech will mathematically destroy the geometric vector coordinates generated by the semantic model.
-* **Dynamic RRF Scaling [INDUSTRY STANDARD]:** Because a flushed, partial buffer inherently lacks the robust semantic context required by all-MiniLM-L6-v2, the raw Reciprocal Rank Fusion (RRF) score will naturally drop. To prevent unfairly penalizing shorter scriptures, the normalization algorithm must introduce a dynamic scaling factor. As the buffer's word count drops below the 15-word threshold, the system programmatically lowers the RRF_max variable in the normalization equation. This compresses the grading scale, allowing mathematically weaker raw RRF scores from a 6-word phrase to successfully achieve the 85% Auto-Display threshold.
+* **Dynamic RRF Scaling [INDUSTRY STANDARD]:** Because a flushed, partial buffer inherently lacks the robust semantic context required by all-MiniLM-L6-v2, the raw Reciprocal Rank Fusion (RRF) score will naturally drop. To prevent unfairly penalizing shorter scriptures, the normalization algorithm must introduce a dynamic scaling factor. As the buffer's word count drops below the 15-word threshold, the system programmatically lowers the RRF_max variable in the normalization equation. This compresses the grading scale, allowing mathematically weaker raw RRF scores from a 6-word phrase to successfully achieve the 85% threshold (Top of Review Queue).
 
 ## 22. Vosk Failover & Buffer Handoff
 **Question:** When the GPU overheats and the Faster-Whisper thread is killed, how does the continuous audio stream survive the transition to the CPU-only Vosk model without dropping the sentence mid-flight?
@@ -235,7 +235,7 @@ This specific schema is the industry standard for fast, in-memory text matching 
 **Question:** Pushing uncompressed 1920x1080 RGBA video frames continuously through a Python NDI wrapper will cause severe CPU bottlenecking. Furthermore, how do we restrict the Python UI renderer to standard RAM so it doesn't fight the STT model for the 4GB of VRAM?
 
 **Resolution:** * **The WebSocket/HTML Pivot [INDUSTRY STANDARD]:** The Python application must be completely abandoned as a pixel renderer. You must shift the graphical compute burden entirely to the broadcast software.
-    1. **The Dispatcher:** Python initializes a lightweight WebSocket server. When an Auto-Display is triggered, Python packages the text, reference, and theme ID into a microscopic JSON string (e.g., `{"action": "display", "ref": "John 3:16", "theme": "communion"}`) and pushes it over the network.
+    1. **The Dispatcher:** Python initializes a lightweight WebSocket server. When a verse is approved for display, Python packages the text...
     2. **The Renderer:** A static HTML/CSS/JS file acts as the receiver. The JavaScript listens to the WebSocket and updates the DOM. Visual themes are executed instantly by swapping CSS classes (handling fonts, kerning, and drop-shadows natively).
     3. **Broadcast Ingestion:** In OBS/vMix, the NDI Media Source is replaced with a "Browser Source" pointing to the HTML file. The broadcast software’s highly optimized internal Chromium engine executes the render via hardware acceleration, permanently eliminating Python VRAM contention and CPU bottlenecks.
 * **Video Backgrounds [INDUSTRY STANDARD]:** Looping MP4/WebM motion backgrounds must be decoupled from the text rendering. Place the video loop as a standard Media Source on the bottom layer of your OBS scene, and place the transparent HTML Browser Source above it. Do not attempt to force Python or the Browser Source to decode background video files.
