@@ -1162,6 +1162,32 @@ Phase 0 (VM + Environment)
             │                                                       └── Phase 12 (Testing)
             │                                                               └── Phase 13 (Documentation)
 ```
+---
+
+## Phase 15 — Sermon Archive & Semantic Search
+
+Build the post-service repository and the natural language search interface.
+
+### 15.1 Insight Database & Vectorization
+
+- [ ] Create `sermon_insights` table in SQLite
+      Columns: `id, session_id, type (Prophecy/Declaration/etc), content, metadata_json`
+- [ ] Implement incremental vectorization for insights
+      - On extraction completion: encode each insight → FAISS vector
+      - Store in dedicated `archive.index`
+- [ ] Implement hybrid search for History tab:
+      - BM25 on `content`
+      - FAISS on `archive.index`
+
+### 15.2 History UI — The Insight Browser
+
+- [ ] Pivot History tab from raw logs to "Insight Cards"
+- [ ] Implement "Natural Language Search" bar (BM25 + FAISS)
+- [ ] Add category filters: Prophecies, Declarations, Scriptures, Prayer Points
+- [ ] Implement "Context Reveal": Click insight to see surrounding transcript
+
+---
+
 ## Key Constraints Reference (Updated)
 
 | Constraint | Rule |

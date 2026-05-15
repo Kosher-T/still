@@ -1,0 +1,166 @@
+:root {
+    --chrome-bg: #1a1a1a;
+    --chrome-tab-active: #2d2d2d;
+    --chrome-tab-inactive: transparent;
+    --chrome-text-active: #f8fafc;
+    --chrome-text-inactive: #94a3b8;
+}
+
+body {
+    background-color: #020617;
+    color: #f8fafc;
+}
+
+/* Chrome-style Tab Geometry */
+.chrome-tab {
+    position: relative;
+    height: 34px;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 1;
+    text-decoration: none;
+    color: inherit;
+}
+
+.chrome-tab.active {
+    color: var(--chrome-text-active);
+    background: var(--chrome-tab-active);
+    border-radius: 10px 10px 0 0;
+    z-index: 2;
+}
+
+.chrome-tab.inactive {
+    color: var(--chrome-text-inactive);
+}
+
+.chrome-tab.inactive:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px 8px 0 0;
+}
+
+/* Subtle Chrome Divider */
+.chrome-tab.inactive:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    top: 10px;
+    bottom: 10px;
+    width: 1px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Resizers */
+.resizer-x {
+    width: 8px;
+    cursor: col-resize;
+    background-color: transparent;
+    transition: background 0.2s;
+    z-index: 10;
+}
+
+.resizer-x:hover {
+    background-color: rgba(59, 130, 246, 0.2);
+}
+
+.resizer-y {
+    height: 8px;
+    cursor: row-resize;
+    background-color: transparent;
+    transition: background 0.2s;
+    z-index: 10;
+    width: 100%;
+}
+
+.resizer-y:hover {
+    background-color: rgba(59, 130, 246, 0.2);
+}
+
+/* Smaller internal resizer */
+.resizer-inner-y {
+    height: 4px;
+    cursor: row-resize;
+    background-color: rgba(255, 255, 255, 0.03);
+    transition: background 0.2s;
+    z-index: 5;
+}
+
+.resizer-inner-y:hover {
+    background-color: rgba(59, 130, 246, 0.4);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+.verse-item:hover {
+    background: rgba(59, 130, 246, 0.15) !important;
+}
+
+.verse-item:active {
+    background: rgba(59, 130, 246, 0.25) !important;
+}
+
+/* Alternating Backgrounds */
+.verse-item:nth-child(even) {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.verse-item:nth-child(odd) {
+    background: transparent;
+}
+
+/* Highlight state overrides alternating background */
+.verse-item.selected {
+    background: rgba(59, 130, 246, 0.1) !important;
+    border-left: 2px solid #3b82f6;
+}
+
+/* Sub-toolbar Styles */
+.sub-toolbar {
+    height: 32px;
+    background-color: #0f172a; /* slate-900 */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 16px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #94a3b8; /* slate-400 */
+}
+
+.sub-toolbar span:hover {
+    color: white;
+    cursor: pointer;
+}
+
+/* Glassmorphism Cards */
+.glass-card {
+    background: rgba(30, 41, 59, 0.4); /* slate-800/40 */
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+}

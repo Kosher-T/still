@@ -4,13 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RhemaCast - Production Frontend</title>
+    <title>RhemaCast - Presentation</title>
     <!-- Premium Font: Nunito for soft, smooth geometry -->
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="global.css">
     <script>
         tailwind.config = {
             theme: {
@@ -22,145 +23,6 @@
             },
         }
     </script>
-    <style>
-        :root {
-            --chrome-bg: #1a1a1a;
-            --chrome-tab-active: #2d2d2d;
-            --chrome-tab-inactive: transparent;
-            --chrome-text-active: #f8fafc;
-            --chrome-text-inactive: #94a3b8;
-        }
-
-        body {
-            background-color: #020617;
-            color: #f8fafc;
-        }
-
-        /* Chrome-style Tab Geometry */
-        .chrome-tab {
-            position: relative;
-            height: 34px;
-            padding: 0 20px;
-            display: flex;
-            align-items: center;
-            font-size: 11px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            z-index: 1;
-        }
-
-        .chrome-tab.active {
-            color: var(--chrome-text-active);
-            background: var(--chrome-tab-active);
-            border-radius: 10px 10px 0 0;
-            z-index: 2;
-        }
-
-        .chrome-tab.inactive {
-            color: var(--chrome-text-inactive);
-        }
-
-        .chrome-tab.inactive:hover {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px 8px 0 0;
-        }
-
-        /* Subtle Chrome Divider */
-        .chrome-tab.inactive:not(:last-child)::after {
-            content: "";
-            position: absolute;
-            right: 0;
-            top: 10px;
-            bottom: 10px;
-            width: 1px;
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        /* Resizers */
-        .resizer-x {
-            width: 8px;
-            cursor: col-resize;
-            background-color: transparent;
-            transition: background 0.2s;
-            z-index: 10;
-        }
-
-        .resizer-x:hover {
-            background-color: rgba(59, 130, 246, 0.2);
-        }
-
-        .resizer-y {
-            height: 8px;
-            cursor: row-resize;
-            background-color: transparent;
-            transition: background 0.2s;
-            z-index: 10;
-            width: 100%;
-        }
-
-        .resizer-y:hover {
-            background-color: rgba(59, 130, 246, 0.2);
-        }
-
-        /* Smaller internal resizer */
-        .resizer-inner-y {
-            height: 4px;
-            cursor: row-resize;
-            background-color: rgba(255, 255, 255, 0.03);
-            transition: background 0.2s;
-            z-index: 5;
-        }
-
-        .resizer-inner-y:hover {
-            background-color: rgba(59, 130, 246, 0.4);
-        }
-
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-        }
-
-        .verse-item:hover {
-            background: rgba(59, 130, 246, 0.15) !important;
-        }
-
-        .verse-item:active {
-            background: rgba(59, 130, 246, 0.25) !important;
-        }
-
-        /* Alternating Backgrounds */
-        .verse-item:nth-child(even) {
-            background: rgba(255, 255, 255, 0.03);
-        }
-
-        .verse-item:nth-child(odd) {
-            background: transparent;
-        }
-
-        /* Highlight state overrides alternating background */
-        .verse-item.selected {
-            background: rgba(59, 130, 246, 0.1) !important;
-            border-left: 2px solid #3b82f6;
-        }
-    </style>
 </head>
 
 <body class="h-screen w-screen font-sans overflow-hidden flex flex-col select-none">
@@ -172,13 +34,11 @@
             <div class="flex items-center self-center px-4 mr-2">
                 <span class="text-[13px] font-extrabold tracking-tighter text-blue-400 uppercase">RhemaCast</span>
             </div>
-            <div class="chrome-tab inactive">FILE</div>
-            <div class="chrome-tab inactive">EDIT</div>
-            <div class="chrome-tab active">PRESENTATION</div>
-            <div class="chrome-tab inactive">PROFILE</div>
-            <div class="chrome-tab inactive">SETTINGS</div>
-            <div class="chrome-tab inactive">EXTENSIONS</div>
-            <div class="chrome-tab inactive">THEME DESIGNER</div>
+            <a href="presentation.html" class="chrome-tab active">PRESENTATION</a>
+            <a href="library.html" class="chrome-tab inactive">LIBRARY</a>
+            <a href="history.html" class="chrome-tab inactive">HISTORY</a>
+            <a href="settings.html" class="chrome-tab inactive">SETTINGS</a>
+            <a href="extensions.html" class="chrome-tab inactive">EXTENSIONS</a>
         </div>
 
         <div class="flex h-full items-start pt-1">
@@ -192,6 +52,20 @@
                 class="w-12 h-8 flex items-center justify-center hover:bg-red-600 group cursor-pointer transition-colors">
                 <span class="text-lg font-light group-hover:text-white">×</span>
             </div>
+        </div>
+    </div>
+
+    <!-- Presentation-Specific Sub-Toolbar -->
+    <div class="sub-toolbar">
+        <div class="flex gap-4 border-r border-white/5 pr-4 mr-2">
+            <span>File</span>
+            <span>Edit</span>
+            <span>View</span>
+        </div>
+        <div class="flex gap-4">
+            <span class="text-white font-bold">Schedule</span>
+            <span>Remote</span>
+            <span>Live Sync</span>
         </div>
     </div>
 

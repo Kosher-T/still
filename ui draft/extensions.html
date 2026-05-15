@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RhemaCast - Extensions</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="global.css">
+</head>
+
+<body class="h-screen w-screen font-sans overflow-hidden flex flex-col select-none">
+
+    <!-- Chrome-Style Top Bar -->
+    <div class="h-[42px] bg-[#1a1a1a] flex items-end justify-between px-2 shrink-0 border-b border-black/40">
+        <div class="flex items-end flex-1 overflow-hidden">
+            <div class="flex items-center self-center px-4 mr-2">
+                <span class="text-[13px] font-extrabold tracking-tighter text-blue-400 uppercase">RhemaCast</span>
+            </div>
+            <a href="presentation.html" class="chrome-tab inactive">PRESENTATION</a>
+            <a href="library.html" class="chrome-tab inactive">LIBRARY</a>
+            <a href="history.html" class="chrome-tab inactive">HISTORY</a>
+            <a href="settings.html" class="chrome-tab inactive">SETTINGS</a>
+            <a href="extensions.html" class="chrome-tab active">EXTENSIONS</a>
+        </div>
+        <div class="flex h-full items-start pt-1">
+            <div class="w-11 h-8 flex items-center justify-center hover:bg-white/10 cursor-pointer transition-colors"><div class="w-2.5 h-[1px] bg-white"></div></div>
+            <div class="w-11 h-8 flex items-center justify-center hover:bg-white/10 cursor-pointer transition-colors"><div class="w-2.5 h-2.5 border border-white"></div></div>
+            <div class="w-12 h-8 flex items-center justify-center hover:bg-red-600 group cursor-pointer transition-colors"><span class="text-lg font-light group-hover:text-white">×</span></div>
+        </div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div class="flex-1 flex flex-col items-center justify-center bg-slate-950 p-6">
+        <div class="max-w-2xl w-full text-center space-y-8">
+            <div class="relative">
+                <div class="absolute inset-0 bg-blue-500/20 blur-[100px] rounded-full"></div>
+                <div class="relative glass-card p-12 border-white/10">
+                    <i data-lucide="puzzle" class="w-16 h-16 text-blue-400 mx-auto mb-6"></i>
+                    <h1 class="text-3xl font-black mb-4 tracking-tight">Extensions & Add-ons</h1>
+                    <p class="text-slate-400 text-sm leading-relaxed mb-8">
+                        The RhemaCast extension API is currently in development. Soon you will be able to install community-built plugins for theme design, OBS automation, and sermon archiving.
+                    </p>
+                    <div class="inline-flex items-center gap-2 px-6 py-2 bg-blue-600/10 border border-blue-500/30 text-blue-400 rounded-full text-xs font-bold uppercase tracking-widest animate-pulse">
+                        Features Coming Soon
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-4 opacity-40">
+                <div class="p-4 glass-card">
+                    <i data-lucide="palette" class="w-5 h-5 mx-auto mb-2 text-slate-500"></i>
+                    <div class="text-[10px] font-bold uppercase">Theme Designer</div>
+                </div>
+                <div class="p-4 glass-card">
+                    <i data-lucide="cloud" class="w-5 h-5 mx-auto mb-2 text-slate-500"></i>
+                    <div class="text-[10px] font-bold uppercase">Cloud Sync</div>
+                </div>
+                <div class="p-4 glass-card">
+                    <i data-lucide="webhook" class="w-5 h-5 mx-auto mb-2 text-slate-500"></i>
+                    <div class="text-[10px] font-bold uppercase">Web API</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>lucide.createIcons();</script>
+</body>
+</html>

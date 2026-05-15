@@ -6,11 +6,12 @@ This document specifies how RhemaCast handles post-service transcript extraction
 
 ## Overview
 
-After the service ends (Phase 3), the complete sermon transcript is sent to a cloud-based Large Language Model for structured extraction. The LLM identifies and isolates three categories of content:
+After the service ends (Phase 3), the complete sermon transcript is sent to a cloud-based Large Language Model for structured extraction. The LLM identifies and isolates four primary categories of content:
 
 1. **Declarations** — Formatted prayer points, commands, and petitions.
 2. **Prophecies** — Prophetic words, "Thus says the Lord" moments isolated from general preaching.
-3. **Summary** — A condensed overview of the sermon's key themes and scripture references.
+3. **Main Scriptures** — The primary biblical texts that formed the anchor of the sermon.
+4. **Summary** — A condensed overview of the sermon's key themes.
 
 ---
 
@@ -69,10 +70,17 @@ An LLM may occasionally return malformed text, incomplete JSON, or deviate from 
       "timestamp_approx": "00:45:12"
     }
   ],
+  "prayer_points": [
+    {
+      "text": "Pray for a fresh fire outbreak in our local community.",
+      "focus": "Community Transformation",
+      "timestamp_approx": "01:10:00"
+    }
+  ],
+  "main_scriptures": ["Isaiah 54:17", "Revelation 3:8"],
   "summary": {
     "title": "Walking Through Open Doors",
     "key_themes": ["faith", "divine provision", "prophetic destiny"],
-    "scriptures_referenced": ["Isaiah 54:17", "Revelation 3:8", "John 3:16"],
     "duration_minutes": 118
   }
 }
@@ -87,7 +95,9 @@ You are a church service transcript analyzer. You will receive the full, unedite
 
 2. PROPHECIES: Any moments where the pastor speaks in a prophetic tone — "Thus says the Lord," direct divine utterances, or words of knowledge. Isolate these from general preaching.
 
-3. SUMMARY: A concise overview of the sermon including the implied title, key themes, and all scripture references mentioned.
+3. MAIN SCRIPTURES: Identify the primary Bible references that formed the basis of the message.
+
+4. SUMMARY: A concise overview of the sermon including the implied title and key themes.
 
 Return your response as a JSON object conforming to this exact schema:
 {schema}
@@ -281,6 +291,22 @@ response = client.chat.completions.create(
 
 > [!WARNING]
 > **Do not** build custom batch-processing pipelines on platforms like Kaggle for LLM inference. This introduces catastrophic execution latency (15–30 minutes per job) and violates standard production REST architecture. Always use serverless inference APIs for post-service extraction.
+
+---
+
+## Semantic Archive Search
+
+All extracted insights (Declarations, Prophecies, Prayer Points) are stored in the local SQLite database and indexed for **Natural Language Search**.
+
+### The Hybrid Search Pivot
+
+Similar to the live Bible search, the Archive Search uses a hybrid approach:
+- **Lexical (BM25):** For exact matches on keywords or names.
+- **Semantic (FAISS):** For conceptual matches. This allows an operator to search for "fire outbreak" and find a prophecy about "spiritual awakening and burning passion" even if the exact phrase "fire outbreak" wasn't used.
+
+### History Tab Integration
+
+The **History** tab serves as the primary browser for these insights. Raw display logs are suppressed in favor of these high-value extractions, allowing the operator to quickly review the spiritual highlights of past services.
 
 ---
 
