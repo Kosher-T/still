@@ -191,17 +191,16 @@ Securing a clean, dedicated audio feed remains the primary objective. By circumv
 
 ## 20. JSON Intent Structure
 
-To maintain the lightweight, zero-compute execution mandated by the architecture, the established standard structure must be a flat, root-level JSON object. The keys must strictly define the target Intent State, and the values must be one-dimensional arrays of exact strings.
+> [!WARNING]
+> **Schema Updated.** The original 3-tier schema below (high/medium/low) was deprecated when DistilBERT was removed. The current schema uses a 2-tier Boolean structure: `trigger_intent` (True) and `ignore_intent` (False override). See [intent_classification.md](intent_classification.md) for the canonical schema.
 
 ```json
 {
-  "high_intent": [
+  "trigger_intent": [
     "turn to chapter",
     "turn to",
     "open your bibles",
-    "verse"
-  ],
-  "medium_intent": [
+    "verse",
     "the bible says",
     "scripture tells us",
     "jesus said"
@@ -213,7 +212,7 @@ To maintain the lightweight, zero-compute execution mandated by the architecture
 }
 ```
 
-This specific schema is the industry standard for fast, in-memory text matching because it allows the initialization thread to deserialize the JSON directly into native Python dictionary sets or lists. This structure permits highly optimized string inclusion checks (e.g., `if any(trigger in spoken_text for trigger in triggers['high_intent']):`) during Phase 4 of the search pipeline without introducing complex parsing overhead.
+This structure permits highly optimized regex compilation during Phase 1 using bounded Token-Window patterns that natively absorb filler words and stutters.
 
 
 ## 21. Slow Speech & The Deadlock Threshold

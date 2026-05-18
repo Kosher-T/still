@@ -124,7 +124,7 @@ CREATE TABLE search_results (
     top_verse_ref   TEXT,              -- e.g., "John 3:16"
     rrf_raw_score   REAL,
     confidence_pct  REAL,              -- 0.0 to 100.0
-    intent_score    TEXT,              -- "high", "medium", "low"
+    intent_score    INTEGER,           -- Boolean: 1 = trigger detected, 0 = no trigger
     bm25_rank       INTEGER,           -- Rank in BM25 lane (NULL if absent)
     faiss_rank      INTEGER,           -- Rank in FAISS lane (NULL if absent)
     action_taken    TEXT NOT NULL,      -- "top_queued", "queued", "discarded"
@@ -163,7 +163,7 @@ CREATE TABLE sessions (
     session_id    TEXT PRIMARY KEY,     -- e.g., "2026-04-16_AM"
     started_at    INTEGER NOT NULL,     -- Unix epoch ms
     ended_at      INTEGER,             -- NULL until service ends
-    audio_source  TEXT,                 -- "wireless", "dfn3_room"
+    audio_source  TEXT,                 -- "wireless" only (DFN3/room audio deprecated)
     notes         TEXT                  -- Operator notes
 );
 ```

@@ -40,14 +40,12 @@ The hook binds/unbinds the GPU between the Linux nvidia driver and vfio-pci auto
       `lspci -nn | grep NVIDIA`
       # Example output: `01:00.0 [10de:1f82]` (GPU), `01:00.1 [10de:10fa]` (Audio)
 
-- [ ] Blacklist nvidia driver for vfio
-
-      `/etc/modprobe.d/vfio.conf`:
-      `options vfio-pci ids=10de:1f82,10de:10fa`
-
-- [ ] Create libvirt hook: `/etc/libvirt/hooks/qemu`
+- [ ] Create libvirt hook for dynamic GPU rebinding: `/etc/libvirt/hooks/qemu`
       # On VM start: unbind nvidia → bind vfio-pci
       # On VM stop:  unbind vfio-pci → bind nvidia
+      # Do NOT permanently blacklist nvidia via /etc/modprobe.d/vfio.conf —
+      # static binding would prevent Linux from using the GPU for development.
+      # The hook script handles dynamic binding/unbinding on VM start/stop.
 
       `chmod +x /etc/libvirt/hooks/qemu`
 
@@ -60,7 +58,54 @@ The hook binds/unbinds the GPU between the Linux nvidia driver and vfio-pci auto
 
 **Validation checkpoint:** From inside the Windows VM, run a quick Faster-Whisper test transcription on a sample WAV file. If it completes on GPU (cuda device), the passthrough is correct.
 
-### 0.3 Python Environment — Both Platforms
+### 0.3 Windows VM Setup
+
+Now that the GPU passthrough infrastructure is in place, create the Windows VM that will serve as the build and test environment for the Windows .exe target.
+
+- [ ] **Download Windows ISO** from Microsoft:
+      - Windows 11: https://www.microsoft.com/software-download/windows11
+      - Select "Download Windows 11 Disk Image (ISO)" → Windows 11 (multi-edition ISO) → select language → download (~5.5 GB)
+      - Alternatively, pre-built [Windows 11 Developer Edition VM](https://developer.microsoft.com/en-us/windows/downloads/virtual-machines/) (includes WSL/dev tools, saves setup time)
+
+- [ ] **Create the VM in virt-manager:**
+      - Open virt-manager → File → New Virtual Machine
+      - Select "Local install media (ISO image or CDROM)" → Forward → Browse → select the Windows ISO
+      - RAM: 8192 MB (8 GB), CPUs: 4
+      - Disk: 64 GB (dynamically allocated, qcow2 format)
+      - Name: `Windows 11 Dev`
+
+- [ ] **Configure VM firmware and devices:**
+      - Settings → Overview → Firmware: select "UEFI x86_64: /usr/share/OVMF/OVMF_CODE_4M.fd"
+      - Settings → CPU → Topology: match host topology
+      - Settings → Add Hardware → PCI Host Device → select GTX 1650 GPU
+      - Settings → Add Hardware → PCI Host Device → select GTX 1650 Audio device
+      - Settings → Boot Options → enable cdrom as first boot device
+
+- [ ] **Install Windows:**
+      - Start the VM → press any key when prompted
+      - Language/time → Install now → "I don't have a product key"
+      - Select **Windows 11 Pro** → accept license terms
+      - **Custom: Install Windows only (advanced)** → select unallocated space → Next
+      - Wait for automated reboots to complete
+
+- [ ] **Install VirtIO drivers and SPICE guest tools:**
+      - Download `virtio-win.iso` from: https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso
+      - Attach ISO to VM: Storage → SATA CDROM → select the downloaded ISO
+      - Inside the VM, open D: drive → run `virtio-win-gt-x64.msi`
+      - Reboot the VM
+
+- [ ] **Post-install Windows configuration:**
+      - Windows Update → Check for updates → install all pending
+      - Install essential tools:
+            `winget install Microsoft.VisualStudioCode Git.Git Microsoft.WindowsTerminal`
+      - Disable unnecessary animations for VM performance
+
+- [ ] **Take a clean base snapshot:**
+      - virt-manager → VM → Manage VM Snapshots → Create snapshot
+      - Name: `base-install` — clean state before CUDA and dev tools
+      - Allows quick rollback if the dev environment gets polluted
+
+### 0.4 Python Environment — Both Platforms
 
 Set up matching Python environments on Linux (dev) and inside the Windows VM (packaging + Windows testing).
 
@@ -80,23 +125,28 @@ Set up matching Python environments on Linux (dev) and inside the Windows VM (pa
       `pip install sounddevice numpy`
       `pip install vosk`
       `pip install faiss-cpu`
-      `pip install sentence-transformers onnxruntime`
+      `pip install "sentence-transformers[onnx]" onnxruntime`
       `pip install rank_bm25`
       `pip install websockets aiohttp`
       `pip install pynvml`
-      `pip install sqlite3`   # stdlib, no install needed
+      `pip install psutil`
+      `pip install keyring`
+      `pip install PyQt6`
       `pip install pyinstaller`  # Windows VM only, for packaging
-      `pip install pytest pytest-qt unittest.mock`  # testing frameworks
+      `pip install pytest pytest-qt`
+      # Note: sqlite3 and unittest.mock are Python stdlib — no pip install needed
+
+- [ ] Generate requirements file
+
+      `pip freeze > requirements.txt`
 
 - [ ] Verify GPU access in Python (Windows VM)
 
-      `python -c "import torch; print(torch.cuda.is_available())"`
-      # Or via CTranslate2:
-
       `python -c "import ctranslate2; print(ctranslate2.get_cuda_device_count())"`
+      # CTranslate2 is the backend used by faster-whisper — PyTorch is not required
 
 
-### 0.4 Repository Structure
+### 0.5 Repository Structure
 
 ```
 rhemacast/
@@ -138,7 +188,7 @@ rhemacast/
 └── main.py
 ```
 
-### 0.5 CUDA Toolkit — Windows VM
+### 0.6 CUDA Toolkit — Windows VM
 
 - [ ] Download NVIDIA CUDA Toolkit (match your driver version)
       https://developer.nvidia.com/cuda-downloads
@@ -295,26 +345,6 @@ Queues, database, WebSocket skeleton, and threading harness. No AI models yet. T
 - [ ] Fail boot if required fields missing.
 
 
-### 2.X Tests & Validation
-
-#### [NEW] `tests/test_phase2_core.py`
-- [ ] `test_regression_phase1()` — Verify BM25/FAISS indexes still load after Phase 2 changes.
-- [ ] `test_config_schema_validation()` — Feed invalid JSON; verify rejection with clear error message.
-- [ ] `test_service_manager_state_machine()` — Verify all valid state transitions (BOOTING→READY→RUNNING→SHUTTING_DOWN→CRASHED).
-- [ ] `test_backpressure_queue_a_overflow()` — Fill Queue A past 400 items; verify failover trigger fires.
-- [ ] `test_backpressure_operator_queue_drop()` — Fill operator queue past 100; verify oldest low-confidence items dropped.
-- [ ] `test_backpressure_db_spool()` — Fill DB queue past 1000; verify emergency flat-file spool fallback engages.
-- [ ] `test_events_versioning()` — Verify event dataclass versions (TranscriptChunk, SearchQuery, SearchResult, DisplayCommand, TelemetrySample) are forward/backward compatible.
-- [ ] `test_error_taxonomy_attributes()` — Verify all error types (ComputeFailure, AudioDeviceLost, GPUOverheat, DatabaseWriteFailure, IndexMismatch, DisplayDisconnected, CloudExtractionFailure) have correct retryable/fatal/operator_visible/auto_recoverable attributes.
-- [ ] `test_service_state_transitions()` — Verify BOOTING→READY→RUNNING→SHUTTING_DOWN and all valid DEGRADED/FAILOVER transitions.
-- [ ] `test_startup_checks_critical_fail()` — Force a critical check failure (e.g., missing CUDA), verify "Start Service" is blocked.
-- [ ] `test_websocket_reject_remote()` — Attempt WebSocket connection from non-localhost; verify connection rejected.
-- [ ] `test_html_sanitization()` — Inject XSS payload into scripture text; verify it's escaped before broadcast.
-- [ ] **Integration Tests:** Push 1000 items to `db_write_queue` and ensure all are flushed to SQLite WAL before exit.
-- [ ] **Validation:** Introduce bad DB lock; verify fallback to flat-file append-only logging.
-
----
-
 ### 2.2 Explicit Event Bus & Error Taxonomy
 
 **NEW:** `core/events.py` – dataclasses for all inter‑thread payloads.
@@ -455,6 +485,25 @@ Queues, database, WebSocket skeleton, and threading harness. No AI models yet. T
 - [ ] Verify required environment variables present (API keys not needed for startup, but keys for cloud extraction must be present if enabled)
 - [ ] Produce PASS / WARNING / FAIL report; block “Start Service” if critical checks fail.
 
+
+### 2.X Tests & Validation
+
+#### [NEW] `tests/test_phase2_core.py`
+- [ ] `test_regression_phase1()` — Verify BM25/FAISS indexes still load after Phase 2 changes.
+- [ ] `test_config_schema_validation()` — Feed invalid JSON; verify rejection with clear error message.
+- [ ] `test_service_manager_state_machine()` — Verify all valid state transitions (BOOTING→READY→RUNNING→SHUTTING_DOWN→CRASHED).
+- [ ] `test_backpressure_queue_a_overflow()` — Fill Queue A past 400 items; verify failover trigger fires.
+- [ ] `test_backpressure_operator_queue_drop()` — Fill operator queue past 100; verify oldest low-confidence items dropped.
+- [ ] `test_backpressure_db_spool()` — Fill DB queue past 1000; verify emergency flat-file spool fallback engages.
+- [ ] `test_events_versioning()` — Verify event dataclass versions (TranscriptChunk, SearchQuery, SearchResult, DisplayCommand, TelemetrySample) are forward/backward compatible.
+- [ ] `test_error_taxonomy_attributes()` — Verify all error types (ComputeFailure, AudioDeviceLost, GPUOverheat, DatabaseWriteFailure, IndexMismatch, DisplayDisconnected, CloudExtractionFailure) have correct retryable/fatal/operator_visible/auto_recoverable attributes.
+- [ ] `test_service_state_transitions()` — Verify BOOTING→READY→RUNNING→SHUTTING_DOWN and all valid DEGRADED/FAILOVER transitions.
+- [ ] `test_startup_checks_critical_fail()` — Force a critical check failure (e.g., missing CUDA), verify "Start Service" is blocked.
+- [ ] `test_websocket_reject_remote()` — Attempt WebSocket connection from non-localhost; verify connection rejected.
+- [ ] `test_html_sanitization()` — Inject XSS payload into scripture text; verify it's escaped before broadcast.
+- [ ] **Integration Tests:** Push 1000 items to `db_write_queue` and ensure all are flushed to SQLite WAL before exit.
+- [ ] **Validation:** Introduce bad DB lock; verify fallback to flat-file append-only logging.
+
 ---
 
 ## Phase 3 — Audio Pipeline
@@ -561,6 +610,10 @@ Faster-Whisper on GPU, 15-word sliding window, Vosk failover.
 
 ### 4.2 Vosk Failover (Thread 2-Fallback)
 
+- [ ] Download Vosk model: `vosk-model-small-en-us` (~50 MB)
+      https://alphacephei.com/vosk/models
+      Extract to `data/vosk-model-small-en-us/`
+
 - [ ] Load Vosk model during Phase 1 (warm standby, zero CPU):
 
       ```python
@@ -629,8 +682,11 @@ BM25 + FAISS in parallel, RRF fusion, Min-Max normalization.
 
       ```python
       from sentence_transformers import SentenceTransformer
-      embedder = SentenceTransformer("all-MiniLM-L6-v2")
-      # Ensure it uses ONNX Runtime CPU execution provider (no GPU)
+      embedder = SentenceTransformer(
+          "all-MiniLM-L6-v2",
+          backend="onnx",
+          model_kwargs={"provider": "CPUExecutionProvider"}
+      )
       ```
 
 
@@ -1028,7 +1084,7 @@ Main thread: Presentation tab, operator review queue, hotkeys, schedule panel, p
 
 Post-service LLM extraction, retry logic, offline queuing, reconnection polling.
 
-### 10.0 Data Privacy
+### 10.1 Data Privacy
 
 - [ ] Document data privacy posture:
       - Sermon transcripts are sent to enterprise-grade cloud providers via API (Gemini, Claude, GPT-4o-mini, Groq)
@@ -1036,6 +1092,12 @@ Post-service LLM extraction, retry logic, offline queuing, reconnection polling.
       - Enterprise zero-data-retention policies apply (Gemini, Claude, and most commercial APIs do not train on API-submitted data by default)
       - No personally identifiable information (PII) beyond the sermon content is transmitted
       - API keys stored in system keyring or `.env` — never in database
+
+- [ ] Create `.env.example` with placeholder entries:
+      `GEMINI_API_KEY=your-key-here`
+      `CLAUDE_API_KEY=your-key-here`
+      `GROQ_API_KEY=your-key-here`
+      `OPENAI_API_KEY=your-key-here`
 
 ### 10.2 Transcript Reconstruction
 
@@ -1461,7 +1523,7 @@ Build the post-service repository and the natural language search interface.
 ```
 Phase 0 (VM + Environment)
     └── Phase 1 (Bible Indexes)
-    └── Phase 2 (Core Infrastructure + Config + Events + Startup)
+            └── Phase 2 (Core Infrastructure + Config + Events + Startup)
             ├── Phase 3 (Audio Pipeline)
             ├── Phase 4 (STT Engine)
             │       └── Phase 5 (Search Engine)

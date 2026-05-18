@@ -90,8 +90,8 @@ An initial assumption was that if the GPU throttles and inference runs slower th
 
 To prevent drift, Queue A enforces latency memory bounds:
 
-1. **Queue A Bounds:** Queue A is monitored for size limits. At 100ms block sizes, a queue depth of 150 items equates to exactly 15 seconds of transcription lag.
-2. **Compute Failure:** If Queue A exceeds 150 items, the system declares a Compute Failure. The Main Thread flips an OS-level event flag to unblock the fallback thread.
+1. **Queue A Bounds:** Queue A is monitored for size limits. At 100ms block sizes, a queue depth of 400 items equates to exactly 40 seconds of transcription lag.
+2. **Compute Failure:** If Queue A exceeds 400 items, the system declares a Compute Failure. The Main Thread flips an OS-level event flag to unblock the fallback thread.
 
 **Refined Compute Failure detection:** Thread 2 increments a counter each time it processes a chunk. A watchdog thread checks the counter; if stalled for > 2 seconds while audio is incoming, declare Compute Failure. When Compute Failure occurs: pause audio capture (set flag in Thread 1 to stop pushing new chunks), replay pending unacknowledged chunks to Vosk, then resume capture.
 
@@ -101,7 +101,7 @@ When Failover is triggered:
 
 1. **The Pivot:** The system flags all **unacknowledged audio chunks** as pending. Thread 2 (GPU) is halted.
 2. **Phase 1 Initialization:** The Vosk model (`vosk-model-small-en-us`) is already loaded into standard RAM, and Thread 2-Fallback was spawned during Phase 1 but blocked by an OS-level event flag (consuming 0 CPU cycles). Transition spin-up time is exactly 0 milliseconds when the flag is flipped.
-3. **CPU Starvation Prevention:** To prevent Vosk from monopolizing the CPU while draining the 150-chunk backlog and starving the Search/Database threads:
+3. **CPU Starvation Prevention:** To prevent Vosk from monopolizing the CPU while draining the backlog and starving the Search/Database threads:
    - OpenBLAS/MKL threads are hard-capped via environment variables (`OMP_NUM_THREADS`, etc.) during Phase 1.
    - The drain loop explicitly yields to the OS scheduler (`time.sleep(0.01)`) between chunks.
 4. **Queue Draining:** Thread 1 continues pushing audio chunks. Vosk burns through the unacknowledged chunks safely, preventing any dropped audio.
@@ -178,7 +178,7 @@ The operational modes affect thread behavior as follows:
 When an error occurs in a downstream thread, it must not silently die. Each thread should catch exceptions, log the error, push a diagnostic event to the Database Write Queue, and — depending on severity — either:
 
 1. **Continue** (transient error, e.g., a single embedding model timeout) 
-2. **Trigger degradation** (e.g., DistilBERT fails → fall back to `intent_triggers.json`)
+2. **Trigger degradation** (e.g., embedding model fails → fall back to BM25-only search)
 3. **Signal failover** (e.g., GPU crash → initialize Vosk, replay unacknowledged chunks)
 4. **Push poison pill and exit** (e.g., unrecoverable exception → cascade shutdown)
 

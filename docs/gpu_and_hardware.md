@@ -9,7 +9,7 @@ This document specifies RhemaCast's hardware requirements, VRAM budget, GPU ther
 | Resource | Minimum | Notes |
 |----------|---------|-------|
 | **GPU** | NVIDIA, 4 GB dedicated VRAM | Must be exclusively available for the STT model; no other GPU-accelerated applications should run simultaneously |
-| **RAM** | 16 GB | Hosts FAISS index, BM25 index, ONNX embedding model, DistilBERT, all queues, SQLite, and the Python runtime |
+| **RAM** | 16 GB | Hosts FAISS index, BM25 index, ONNX embedding model, all queues, SQLite, and the Python runtime |
 | **CPU** | Modern multi-core (Intel i5 / AMD Ryzen 5 or better) | Drives semantic search, BM25, intent classification, database writes, and the Vosk failover model |
 | **OS** | Windows (primary target), Linux (development & secondary target) | See [architecture.md](architecture.md) for the VFIO GPU passthrough development workflow |
 | **Privileges** | Root (Linux) / Run as Administrator (Windows) | **Required** — NVML power state modification commands are rejected without elevated privileges |
@@ -29,7 +29,7 @@ The 4 GB VRAM is a hard constraint. Only one model is permitted to reside in VRA
 | **Remaining headroom** | ~500 MB – 2 GB | Safety buffer for memory fragmentation spikes |
 
 > [!IMPORTANT]
-> **No other model touches VRAM.** The semantic embedding model (`all-MiniLM-L6-v2`) runs via ONNX Runtime on the CPU execution provider. DistilBERT runs on CPU. FAISS runs on CPU. This is a deliberate architectural constraint — not a performance trade-off — to guarantee VRAM isolation for the STT engine.
+> **No other model touches VRAM.** The semantic embedding model (`all-MiniLM-L6-v2`) runs via ONNX Runtime on the CPU execution provider. FAISS runs on CPU. This is a deliberate architectural constraint — not a performance trade-off — to guarantee VRAM isolation for the STT engine.
 
 ---
 

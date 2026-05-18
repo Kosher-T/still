@@ -58,7 +58,7 @@ graph TD
 |----------|-------------|
 | [architecture.md](architecture.md) | System-wide architecture, threading model, queue topology, and 4-phase lifecycle |
 | [search_engine.md](search_engine.md) | Hybrid BM25 + FAISS search, RRF scoring, sliding window, deduplication |
-| [intent_classification.md](intent_classification.md) | DistilBERT intent classifier, JSON fallback, trigger boundary math |
+| [intent_classification.md](intent_classification.md) | Regex-based intent classifier, JSON trigger patterns, trigger boundary math |
 | [ai_models.md](ai_models.md) | All AI model specifications, primary/backup, memory placement |
 | [gpu_and_hardware.md](gpu_and_hardware.md) | VRAM budget, GPU throttling via pynvml, thermal monitoring |
 | [audio_ingestion.md](audio_ingestion.md) | sounddevice configuration, audio format specs, wireless vs DFN 3 |

@@ -233,7 +233,7 @@ These metrics are pushed as part of the Stage 2 payload to the Database Write Qu
 | 2A | BM25 lexical search | ~5 ms |
 | 2B | FAISS semantic search | ~20–30 ms |
 | 3 | RRF fusion + normalization | ~5 ms |
-| 4 | Intent classification | ~15–20 ms |
+| 4 | Intent classification | < 1 ms |
 | 5 | Display decision + LRU check | < 1 ms |
 | **Total** | **End-to-end** | **~40–80 ms** |
 
